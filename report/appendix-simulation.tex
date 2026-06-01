@@ -1,0 +1,71 @@
+%======================================================================
+\chapter[Simulation Parameters and Commands]{Simulation Parameters and Run Commands}
+\label{app:sim}
+%======================================================================
+
+\section{Running the Simulation}
+
+Install dependencies (requires Miniconda):
+\begin{verbatim}
+conda create -n mri_ablation python=3.11 -y
+conda activate mri_ablation
+conda install -c conda-forge numpy scipy matplotlib pillow -y
+pip install pyvista
+\end{verbatim}
+
+Run each solver mode:
+\begin{verbatim}
+python main.py --mode openloop              # bang-bang baseline
+python main.py --mode indirect              # PMP gradient projection
+python main.py --mode direct               # direct single-shooting NLP
+python main.py --mode mpc                  # receding-horizon MPC
+python main.py --mode openloop --bc robin  # convective BC
+python main.py --mode openloop --animate   # generate GIF
+\end{verbatim}
+
+Results are written to \texttt{results/}.
+
+%----------------------------------------------------------------------
+\section{Configuration Quick-Reference}
+
+All parameters are set in \texttt{config.py}.
+The most commonly adjusted values are listed in
+Table~\ref{tab:config-ref}.
+
+\begin{table}[htbp]
+\centering
+\caption{Configuration quick-reference}
+\label{tab:config-ref}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}
+\toprule
+Config field & Symbol & Default & Units \\
+\midrule
+\texttt{DomainConfig.Lx/Ly}           & $L_x, L_y$      & 0.05, 0.05  & m \\
+\texttt{DomainConfig.Nx/Ny}           & $N_x, N_y$      & 50, 50      & --- \\
+\texttt{DomainConfig.tumor\_radius}   & $r_T$           & 0.008       & m \\
+\texttt{TissueConfig.k}               & $k$             & 0.51        & \si{\watt\per\meter\per\kelvin} \\
+\texttt{TissueConfig.omega\_b}        & $\omega_b$      & 0.005       & \si{\per\second} \\
+\texttt{ControlConfig.P\_max}         & $P_{\max}$      & 50.0        & W \\
+\texttt{ControlConfig.T\_safe}        & $T_{\text{safe}}$ & 45.0      & \si{\degreeCelsius} \\
+\texttt{SolverConfig.dt}              & $\Delta t$      & 1.0         & s \\
+\texttt{SolverConfig.t\_final}        & $t_f$           & 300.0       & s \\
+\texttt{BoundaryConfig.bc\_type}      & ---             & dirichlet   & --- \\
+\texttt{BoundaryConfig.h\_c}          & $h_c$           & 50.0        & \si{\watt\per\square\meter\per\kelvin} \\
+\texttt{BoundaryConfig.T\_inf}        & $T_\infty$      & 20.0        & \si{\degreeCelsius} \\
+\texttt{CostConfig.alpha1}            & $\alpha_1$      & $10^{-4}$   & --- \\
+\texttt{CostConfig.gamma1}            & $\gamma_1$      & 10.0        & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%----------------------------------------------------------------------
+\section{Module Verification Scripts}
+
+Each physics module can be run standalone for a quick sanity check:
+\begin{verbatim}
+python -m physics.bioheat       # single RK4 step, print T stats
+python -m physics.arrhenius     # damage accumulation at fixed T
+python -m physics.sar_model     # SAR field peak and shape
+python config.py                # print full config summary
+\end{verbatim}

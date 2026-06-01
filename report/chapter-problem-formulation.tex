@@ -1,0 +1,178 @@
+%======================================================================
+\chapter{Problem Formulation}
+\label{ch:problem}
+%======================================================================
+
+%----------------------------------------------------------------------
+\section{Domain and Geometry}
+
+The tissue domain $\Omega \subset \mathbb{R}^2$ is a square of side
+$L_x \times L_y = \SI{5}{\cm} \times \SI{5}{\cm}$, discretized on a
+uniform $N_x \times N_y$ grid.
+Three non-overlapping sub-regions partition $\Omega$:
+\begin{align}
+    \Omega_T &= \{\mathbf{r} : \|\mathbf{r} - \mathbf{r}_c\| \leq r_T\}
+        & &\text{(tumor)} \\
+    \Omega_M &= \{\mathbf{r} : r_T < \|\mathbf{r} - \mathbf{r}_c\|
+        \leq r_T + \delta_M\}
+        & &\text{(safety margin)} \\
+    \Omega_H &= \Omega \setminus (\Omega_T \cup \Omega_M)
+        & &\text{(healthy tissue)}
+\end{align}
+where $\mathbf{r}_c$ is the tumor center, $r_T = \SI{8}{\mm}$ is the tumor
+radius, and $\delta_M = \SI{3}{\mm}$ is the margin width.
+
+%----------------------------------------------------------------------
+\section{State Equations}
+
+\subsection{State Equation 1 — Pennes Bioheat PDE}
+
+The temperature field $T(\mathbf{r}, t)$ in \si{\degreeCelsius} satisfies:
+\begin{equation}
+    \rho(\mathbf{r})\, c(\mathbf{r})\,\frac{\partial T}{\partial t}
+    = \nabla \cdot \bigl(k(\mathbf{r})\,\nabla T\bigr)
+    - \omega_b \rho_b c_b \bigl(T - T_b\bigr)
+    + Q_{\text{met}}(\mathbf{r})
+    + Q_{\text{source}}(\mathbf{r},\, u,\, t)
+    \label{eq:bioheat}
+\end{equation}
+with initial condition $T(\mathbf{r}, 0) = T_{\text{init}}$ and boundary
+condition on $\partial\Omega$ (Dirichlet, Neumann, or Robin; see
+Section~\ref{sec:bc}).
+
+The volumetric heat source is modeled by a Gaussian near-field \gls{sar}
+approximation:
+\begin{equation}
+    Q_{\text{source}}(\mathbf{r}, P, t)
+    = \underbrace{\mathrm{SAR}_{\text{peak}}\,
+        \exp\!\left(-\frac{\|\mathbf{r} - \mathbf{r}_p\|^2}{2\sigma_{\mathrm{SAR}}^2}\right)
+      }_{\mathrm{SAR}(\mathbf{r})}\cdot P(t)
+    \label{eq:sar}
+\end{equation}
+where $\mathbf{r}_p$ is the probe position, $\sigma_{\mathrm{SAR}}$ is the
+beam spread, and $P(t)$ is the control input (applied power in watts).
+
+After finite-difference discretization with $N = N_x N_y$ voxels:
+\begin{equation}
+    \dot{\mathbf{x}}_T
+    = M^{-1}\!\left[K_d\,\mathbf{x}_T
+      - W_b\bigl(\mathbf{x}_T - T_b\,\mathbf{1}\bigr)
+      + \mathbf{q}_{\mathrm{met}}
+      + \mathbf{b}_P\,P(t)\right]
+    \label{eq:bioheat-discrete}
+\end{equation}
+where $M = \mathrm{diag}(\rho_i c_i)$, $K_d$ is the sparse FD Laplacian
+weighted by $k$, $W_b = \mathrm{diag}(\omega_b \rho_b c_b)$, and
+$\mathbf{b}_P = \mathrm{SAR}(\mathbf{r})$ vectorized.
+
+\subsection{State Equation 2 — Arrhenius Thermal Damage ODE}
+
+The thermal damage field $\Omega_d(\mathbf{r}, t)$ satisfies a
+first-order integro-differential equation at each voxel:
+\begin{equation}
+    \frac{d\Omega_d}{dt}
+    = A\,\exp\!\left(\frac{-E_a}{R\,T_K(\mathbf{r},t)}\right),
+    \qquad \Omega_d(\mathbf{r}, 0) = 0
+    \label{eq:arrhenius}
+\end{equation}
+where $T_K = T_{\text{celsius}} + 273.15$ is temperature in Kelvin,
+$A = 3.1 \times 10^{98}\ \si{\per\second}$ is the frequency factor,
+$E_a = 6.28 \times 10^5\ \si{\joule\per\mol}$ is the activation energy,
+and $R = \SI{8.314}{\joule\per\mol\per\kelvin}$ is the gas constant.
+The damage threshold $\Omega_d = 1$ corresponds to a 63\% probability
+of irreversible cell necrosis (Henriques--Moritz criterion).
+
+%----------------------------------------------------------------------
+\section{Boundary Conditions}
+\label{sec:bc}
+
+Three boundary condition types are supported on $\partial\Omega$:
+\begin{description}
+    \item[Dirichlet] $T = T_{\mathrm{wall}}$ — models a large blood vessel
+        or cooling pad holding the boundary at a fixed temperature
+        (default: $T_{\mathrm{wall}} = T_b = \SI{37}{\degreeCelsius}$).
+    \item[Neumann] $k\,\partial T/\partial n = 0$ — insulated / symmetry
+        plane; built into the FD Laplacian via ghost-cell correction.
+    \item[Robin] $k\,\partial T/\partial n + h_c(T - T_\infty) = 0$ —
+        convective cooling at the tissue surface with heat transfer
+        coefficient $h_c$ [\si{\watt\per\square\meter\per\kelvin}]
+        and ambient temperature $T_\infty$.
+\end{description}
+
+%----------------------------------------------------------------------
+\section{Cost Functional (Bolza Form)}
+
+The optimal control problem minimizes:
+\begin{equation}
+    J[P(\cdot),\, t_f]
+    = \underbrace{
+        \gamma_1 \int_{\Omega_T}\!\!\max\bigl(0,\,1-\Omega_d(t_f)\bigr)^2\,d\mathbf{r}
+        + \gamma_2\,t_f
+      }_{\text{terminal cost } \Phi}
+    + \int_0^{t_f}\!\!
+      \underbrace{
+        \left[
+          \alpha_1\|P\|^2
+          + \alpha_2 \int_{\Omega_H}\!\!\max(0,\,T - T_{\text{safe}})^2\,d\mathbf{r}
+          + \alpha_3
+        \right]
+      }_{\text{running cost } L}\,dt
+    \label{eq:cost}
+\end{equation}
+subject to~\eqref{eq:bioheat-discrete} and~\eqref{eq:arrhenius},
+with $P(t) \in [P_{\min},\, P_{\max}]$ and $|\dot{P}| \leq \dot{P}_{\max}$.
+
+Table~\ref{tab:cost-weights} lists the default weight values.
+
+\begin{table}[htbp]
+\centering
+\caption{Default Bolza cost weights}
+\label{tab:cost-weights}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lll}
+\toprule
+Symbol & Role & Default \\
+\midrule
+$\alpha_1$ & Energy penalty ($\|P\|^2$) & $10^{-4}$ \\
+$\alpha_2$ & Healthy-tissue overheating & $1.0$ \\
+$\alpha_3$ & Time-rate cost (encourages speed) & $0.01$ \\
+$\gamma_1$ & Incomplete ablation penalty & $10.0$ \\
+$\gamma_2$ & Soft minimum-time penalty & $0.1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%----------------------------------------------------------------------
+\section{Adjoint Equations and Optimal Control Law}
+
+Applying the \gls{pmp} to the discretized system, the costate vector
+$\boldsymbol{\lambda} = [\boldsymbol{\lambda}_T,\, \boldsymbol{\lambda}_\Omega]^\top$
+satisfies backward ODEs integrated from $t_f$ to $0$:
+\begin{align}
+    -\dot{\boldsymbol{\lambda}}_T
+    &= A_d^\top\,\boldsymbol{\lambda}_T
+       + 2\alpha_2\,\max(0,\, T - T_{\text{safe}})\cdot\mathbf{1}_{\Omega_H}
+       \nonumber \\
+    &\quad + \boldsymbol{\lambda}_\Omega \odot
+       \left[A\,\frac{E_a}{R T_K^2}\,
+             \exp\!\left(\frac{-E_a}{R T_K}\right)\right]
+    \label{eq:adjoint-T} \\[4pt]
+    -\dot{\boldsymbol{\lambda}}_\Omega &= \mathbf{0}
+    \quad\Rightarrow\quad
+    \boldsymbol{\lambda}_\Omega(t) = \boldsymbol{\lambda}_\Omega(t_f) = \text{const.}
+    \label{eq:adjoint-Omega}
+\end{align}
+with terminal conditions:
+\begin{align}
+    \boldsymbol{\lambda}_T(t_f) &= \mathbf{0} \\
+    \boldsymbol{\lambda}_\Omega(t_f)
+    &= -2\gamma_1\,\max\bigl(0,\,1 - \Omega_d(t_f)\bigr)\cdot\mathbf{1}_{\Omega_T}
+\end{align}
+
+The Pontryagin optimal control law (projection onto the control interval) is:
+\begin{equation}
+    P^*(t)
+    = \clip\!\left(\frac{\boldsymbol{\lambda}_T^\top\,\mathbf{b}_P}{2\alpha_1},\;
+                   P_{\min},\; P_{\max}\right)
+    \label{eq:pontryagin}
+\end{equation}

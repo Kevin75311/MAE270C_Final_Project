@@ -1,0 +1,81 @@
+%======================================================================
+\chapter{Introduction}
+%======================================================================
+
+%----------------------------------------------------------------------
+\section{Motivation}
+
+Liver cancer is among the leading causes of cancer-related mortality
+worldwide~\cite{}.
+Minimally invasive thermal ablation—delivering focused energy to destroy
+tumor tissue without open surgery—is a standard treatment for unresectable
+hepatocellular carcinoma.
+Microwave ablation (MWA) deposits energy through dielectric heating and
+produces predictable, roughly ellipsoidal ablation zones on the order of
+\SIrange{2}{4}{\cm} in diameter.
+
+\gls{mri} guidance is attractive because it provides superior soft-tissue
+contrast, three-dimensional volumetric imaging, and real-time temperature
+mapping via \emph{MR thermometry} (proton resonance frequency shift).
+This combination—MWA plus MRI thermometry—creates a closed-loop opportunity:
+the power schedule can be updated in real time based on measured temperature,
+enabling precise ablation of the tumor while sparing healthy tissue.
+
+%----------------------------------------------------------------------
+\section{Problem Statement}
+
+Given the temperature field measured by MRI thermometry, we seek a power
+schedule $P(t) \in [0, P_{\max}]$ that:
+\begin{enumerate}
+    \item achieves complete thermal ablation of the tumor
+          ($\Omega_d(\mathbf{r}, t_f) \geq 1$ for all $\mathbf{r} \in \Omega_T$);
+    \item keeps healthy tissue below a safety temperature
+          ($T(\mathbf{r},t) \leq T_{\text{safe}}$ for all $\mathbf{r} \in \Omega_H$);
+    \item minimizes treatment duration and total energy deposition.
+\end{enumerate}
+This is a \gls{pde}-constrained \gls{ocp} with free final time,
+state and control constraints, and a Bolza cost structure.
+
+%----------------------------------------------------------------------
+\section{Related Work}
+
+Bioheat equation-based treatment planning dates to the work of
+Pennes~\cite{} and the thermal dose formulation of
+Sapareto and Dewey~\cite{}.
+More recently, model-based optimal control approaches have been applied
+to radiofrequency ablation~\cite{} and laser interstitial therapy~\cite{}.
+Adjoint-based gradient methods for PDE-constrained control are surveyed
+in~\cite{}.
+MPC for thermal ablation using real-time MRI feedback was explored
+in~\cite{}.
+The present work integrates these threads into a unified simulation
+framework with four solver modes (open-loop, indirect PMP, direct NLP, MPC)
+and benchmarks them under matched conditions.
+
+%----------------------------------------------------------------------
+\section{Contributions}
+
+The main contributions of this project are:
+\begin{enumerate}
+    \item A 2-D finite-difference simulator of the Pennes bioheat PDE
+          and Arrhenius damage ODE, parameterized by a single configuration
+          object with no magic numbers.
+    \item An adjoint (costate) solver derived from the \gls{pmp} and
+          verified against finite-difference gradient checks.
+    \item Four interchangeable solver backends—open-loop, indirect gradient
+          projection, direct single-shooting NLP, and receding-horizon
+          \gls{mpc}—sharing a common result interface.
+    \item Configurable boundary conditions (Dirichlet / Neumann / Robin)
+          selectable at the command line.
+    \item Quantitative comparison of the four solvers on a standard
+          5~cm $\times$ 5~cm phantom with an 8~mm tumor.
+\end{enumerate}
+
+%----------------------------------------------------------------------
+\section{Report Organization}
+
+Chapter~\ref{ch:problem} states the mathematical problem.
+Chapter~\ref{ch:methods} describes the numerical methods and software
+architecture.
+Chapter~\ref{ch:results} presents simulation results.
+Chapter~\ref{ch:conclusion} concludes and outlines future work.

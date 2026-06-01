@@ -1,0 +1,136 @@
+%======================================================================
+\chapter{Methods}
+\label{ch:methods}
+%======================================================================
+
+%----------------------------------------------------------------------
+\section{Spatial Discretization}
+
+The bioheat PDE is discretized on a uniform Cartesian grid with
+$N_x \times N_y$ voxels and spacing $\Delta x = L_x / N_x$,
+$\Delta y = L_y / N_y$.
+Interior voxels use 5-point standard second-order finite differences;
+boundary voxels are modified by ghost-cell correction to enforce
+the selected boundary condition (Section~\ref{sec:bc}).
+
+The sparse system matrix $A_d = M^{-1}(K_d - W_b)$ is assembled once
+at solver initialization and reused every timestep
+(\texttt{physics/discretization.py}, \texttt{physics/bioheat.py}).
+
+%----------------------------------------------------------------------
+\section{Time Integration}
+
+The discretized state equation~\eqref{eq:bioheat-discrete} is an ODE
+of dimension $2N$, integrated forward in time with a fixed step $\Delta t$.
+Two integrators are supported:
+
+\begin{description}
+    \item[Forward Euler] $\mathbf{x}_{k+1} = \mathbf{x}_k + \Delta t\,f(\mathbf{x}_k, P_k)$
+        — first-order accurate, conditionally stable.
+    \item[RK4 (default)] Standard 4th-order Runge-Kutta with
+        zero-order hold on $P$ over each interval $[t_k,\, t_{k+1}]$.
+\end{description}
+
+The \gls{cfl} stability condition for the heat equation is:
+\begin{equation}
+    \Delta t \leq \frac{\rho c}{2k}
+    \left(\frac{1}{\Delta x^{-2} + \Delta y^{-2}}\right)
+\end{equation}
+and is checked at startup (\texttt{utils/validators.py}).
+
+%----------------------------------------------------------------------
+\section{Solver Modes}
+
+\subsection{Mode 0 — Open-Loop Bang-Bang}
+
+A fixed power schedule (full power $P_{\max}$ for half the horizon,
+then off) is applied without optimization.
+Used as a baseline and for verifying physical correctness of the state
+equations.
+
+\subsection{Mode 1 — Indirect (PMP Gradient Projection)}
+
+A forward-adjoint sweep algorithm iterates:
+\begin{enumerate}
+    \item \textbf{Forward pass:} integrate state equations~\eqref{eq:bioheat-discrete}
+          and~\eqref{eq:arrhenius} under current $P(t)$.
+    \item \textbf{Terminal costate:} evaluate $\boldsymbol{\lambda}_\Omega(t_f)$
+          from the terminal cost gradient.
+    \item \textbf{Backward pass:} integrate adjoint
+          equations~\eqref{eq:adjoint-T}--\eqref{eq:adjoint-Omega} backward.
+    \item \textbf{Control update:} project onto $[P_{\min}, P_{\max}]$ via~\eqref{eq:pontryagin}
+          and update with step size $\beta$:
+          \[P^{(k+1)} = (1-\beta)\,P^{(k)} + \beta\,P^*\]
+    \item Repeat until $\|P^{(k+1)} - P^{(k)}\|_\infty < \varepsilon$.
+\end{enumerate}
+Convergence is sensitive to $\beta$ (default 0.5);
+oscillation indicates $\beta$ should be reduced.
+
+\subsection{Mode 2 — Direct Single-Shooting NLP}
+
+The power schedule $\mathbf{u} \in \mathbb{R}^{n_{\text{steps}}}$ is passed
+directly to \texttt{scipy.optimize.minimize} with method \texttt{SLSQP}.
+The objective calls \texttt{forward\_simulate()} at every function evaluation,
+making this mode computationally expensive but straightforward to implement.
+Box constraints $P_{\min} \leq u_k \leq P_{\max}$ are enforced via
+\texttt{scipy} bounds.
+
+\subsection{Mode 3 — Receding-Horizon MPC}
+
+At each control update interval $\Delta t_{\text{ctrl}}$, a short-horizon
+optimization is solved using the current (possibly noisy) MRI temperature
+measurement as the initial condition.
+A bang-off-bang heuristic is used for the inner optimizer in the current
+implementation; this can be replaced by \texttt{solve\_direct()} or
+\texttt{solve\_indirect()} on the horizon window for a true MPC.
+
+MRI measurement noise is modeled as additive Gaussian:
+$\hat{T} = T_{\text{true}} + \mathcal{N}(0,\, \sigma_{\text{MRI}}^2)$
+with $\sigma_{\text{MRI}} = \SI{0.5}{\degreeCelsius}$.
+
+%----------------------------------------------------------------------
+\section{Constraint Checking}
+
+After each simulation, the \texttt{ConstraintChecker} module evaluates:
+\begin{description}
+    \item[Path constraints] Maximum healthy-tissue temperature at each timestep;
+        control bounds and slew-rate satisfaction.
+    \item[Terminal constraints] Fraction of tumor voxels ablated
+        ($\Omega_d(t_f) \geq 1$); total treatment time vs.\ $T_{\max}$.
+\end{description}
+
+%----------------------------------------------------------------------
+\section{Software Architecture}
+
+The codebase follows a strict separation of concerns.
+Table~\ref{tab:modules} summarizes the module structure.
+
+\begin{table}[htbp]
+\centering
+\caption{Module map}
+\label{tab:modules}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lll}
+\toprule
+Layer & Module & Role \\
+\midrule
+Config   & \texttt{config.py}                    & Single source of truth \\
+Physics  & \texttt{physics/mesh.py}              & Grid, region masks \\
+Physics  & \texttt{physics/discretization.py}    & Sparse $K_d$, $W_b$ assembly \\
+Physics  & \texttt{physics/bioheat.py}           & Bioheat integrator \\
+Physics  & \texttt{physics/arrhenius.py}         & Damage accumulation \\
+Physics  & \texttt{physics/sar\_model.py}        & SAR field, $\mathbf{b}_P$ \\
+Physics  & \texttt{physics/boundary\_conditions.py} & Dirichlet/Neumann/Robin \\
+Control  & \texttt{control/ocp.py}               & Bolza cost $J$ \\
+Control  & \texttt{control/adjoint.py}           & Costate ODEs, $P^*(t)$ \\
+Control  & \texttt{control/constraints.py}       & Constraint verification \\
+Control  & \texttt{control/solver.py}            & Four solver backends \\
+Utils    & \texttt{utils/validators.py}          & CFL check \\
+Utils    & \texttt{utils/io\_utils.py}           & Result serialization \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All modules import parameters from the global singleton \texttt{cfg}
+(\texttt{from config import cfg}); no magic numbers appear outside
+\texttt{config.py}.

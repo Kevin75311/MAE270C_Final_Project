@@ -1,0 +1,126 @@
+%======================================================================
+% ECE/MAE 270C — MRI Thermal Ablation Optimal Control
+% Course Project Report
+% University of California, Los Angeles
+%======================================================================
+
+\documentclass[letterpaper,12pt,titlepage,oneside,final]{book}
+
+% ── Custom commands ───────────────────────────────────────────────────────────
+\newcommand{\package}[1]{\textbf{#1}}
+\newcommand{\cmmd}[1]{\textbackslash\texttt{#1}}
+
+% ── Core packages ─────────────────────────────────────────────────────────────
+\usepackage{ifthen}
+\newboolean{PrintVersion}
+\setboolean{PrintVersion}{false}
+
+\usepackage{amsmath,amssymb,amstext,amsthm}
+\usepackage{mathtools}          % dcases, prescript, etc.
+\usepackage{bm}                 % bold math symbols (\bm)
+\usepackage[pdftex]{graphicx}
+\usepackage{booktabs}           % \toprule / \midrule / \bottomrule in tables
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{subcaption}         % subfigures
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}           % code listings
+\usepackage{xcolor}
+\usepackage{siunitx}            % SI units
+
+% ── Hyperref (must be last major package) ─────────────────────────────────────
+\usepackage[pdftex,pagebackref=false]{hyperref}
+\hypersetup{
+    plainpages=false,
+    unicode=false,
+    pdftoolbar=true,
+    pdfmenubar=true,
+    pdffitwindow=false,
+    pdfstartview={FitH},
+    pdftitle={PDE-Constrained Optimal Control of MRI-Guided Microwave Thermal Ablation},
+    pdfauthor={Jing-Yuan (Kevin) Huang},
+    pdfsubject={MAE 270C Course Project},
+    pdfkeywords={MRI, thermal ablation, optimal control, Pennes bioheat, Pontryagin, MPC},
+    pdfnewwindow=true,
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=green,
+    filecolor=magenta,
+    urlcolor=cyan
+}
+\ifthenelse{\boolean{PrintVersion}}{
+\hypersetup{citecolor=black, filecolor=black, linkcolor=black, urlcolor=black}
+}{}
+
+\usepackage[automake,toc,abbreviations]{glossaries-extra}
+
+% ── Page geometry ─────────────────────────────────────────────────────────────
+\setlength{\marginparwidth}{0pt}
+\setlength{\marginparsep}{0pt}
+\setlength{\evensidemargin}{0.125in}
+\setlength{\oddsidemargin}{0.125in}
+\setlength{\textwidth}{6.375in}
+\raggedbottom
+\setlength{\parskip}{\medskipamount}
+\renewcommand{\baselinestretch}{1}
+
+\let\origdoublepage\cleardoublepage
+\newcommand{\clearemptydoublepage}{%
+  \clearpage{\pagestyle{empty}\origdoublepage}}
+\let\cleardoublepage\clearemptydoublepage
+
+% ── Math convenience macros ───────────────────────────────────────────────────
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Ot}{\Omega_T}          % tumor domain
+\newcommand{\Oh}{\Omega_H}          % healthy tissue domain
+\newcommand{\Od}{\Omega_d}          % Arrhenius damage field
+\newcommand{\Tblood}{T_b}
+\newcommand{\clip}{\operatorname{clip}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+% ── Glossaries ────────────────────────────────────────────────────────────────
+\input{glossaries}
+\makeglossaries
+
+%======================================================================
+\begin{document}
+%======================================================================
+
+\input{frontpgs}
+
+%----------------------------------------------------------------------
+% MAIN BODY
+%----------------------------------------------------------------------
+\input{chapter-introduction.tex}
+\input{chapter-problem-formulation.tex}
+\input{chapter-methods.tex}
+\input{chapter-results.tex}
+\input{chapter-conclusion.tex}
+
+%----------------------------------------------------------------------
+% REFERENCES
+%----------------------------------------------------------------------
+\bibliographystyle{plain}
+\cleardoublepage
+\phantomsection
+\renewcommand*{\bibname}{References}
+\addcontentsline{toc}{chapter}{\textbf{References}}
+\bibliography{references}
+\nocite{*}
+
+%----------------------------------------------------------------------
+% APPENDICES
+%----------------------------------------------------------------------
+\appendix
+\chapter*{APPENDICES}
+\addcontentsline{toc}{chapter}{APPENDICES}
+\input{appendix-simulation.tex}
+
+% ── Glossaries / Symbols ──────────────────────────────────────────────────────
+\printglossary
+\cleardoublepage
+\phantomsection
+
+%----------------------------------------------------------------------
+\end{document}

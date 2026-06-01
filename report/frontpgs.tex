@@ -1,0 +1,118 @@
+% T I T L E   P A G E
+% -------------------
+\pagestyle{empty}
+\pagenumbering{roman}
+
+\begin{titlepage}
+    \begin{center}
+    \normalsize
+    \MakeUppercase{University of California, Los Angeles} \\
+    Department of Mechanical and Aerospace Engineering \\
+
+    \vspace{3.0cm}
+
+    \Large
+    {\bf PDE-Constrained Optimal Control of \\ MRI-Guided Microwave Thermal Ablation}
+
+    \vspace{4.0cm}
+
+    \normalsize
+    A project report submitted in partial fulfillment \\
+    of the requirements for MAE 270C — Optimal Control
+
+    \vspace{2.5cm}
+
+    by \\
+    \vspace{1.0cm}
+    Jing-Yuan (Kevin) Huang
+
+    \vspace{2.0cm}
+
+    Advisor: Professor Tsu-Chin Tsao \\
+    \vspace{0.5cm}
+    2026
+    \end{center}
+\end{titlepage}
+
+\pagestyle{plain}
+\setcounter{page}{2}
+
+\cleardoublepage
+\phantomsection
+
+% A B S T R A C T
+% ---------------
+\addcontentsline{toc}{chapter}{Abstract}
+\begin{center}\textbf{Abstract}\end{center}
+
+\noindent
+This report presents a PDE-constrained optimal control framework for
+MRI-guided microwave thermal ablation of liver tumors.
+The state equations consist of the Pennes bioheat partial differential equation
+(discretized to a finite-difference ODE) and an Arrhenius thermal damage ODE.
+The control objective is formulated as a Bolza problem with free final time:
+complete tumor ablation (Arrhenius damage $\Omega_d \geq 1$ in $\Omega_T$)
+is penalized at the terminal time, while healthy-tissue overheating,
+total energy, and treatment duration are penalized in the running cost.
+
+Four solution strategies are implemented and compared:
+(i)~open-loop bang-bang simulation,
+(ii)~indirect Pontryagin-based gradient projection (forward-adjoint sweeps),
+(iii)~direct single-shooting nonlinear programming via \texttt{scipy} SLSQP, and
+(iv)~receding-horizon model predictive control (MPC).
+Dirichlet, Neumann, and Robin boundary conditions are supported and selectable at runtime.
+Simulation results demonstrate the trade-off between treatment efficacy and
+collateral thermal damage, and validate the adjoint-based gradient against
+finite-difference perturbations.
+
+\cleardoublepage
+\phantomsection
+
+% A C K N O W L E D G E M E N T S
+% --------------------------------
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\begin{center}\textbf{Acknowledgements}\end{center}
+
+\noindent
+The author gratefully acknowledges Professor Tsu-Chin Tsao for guidance
+throughout MAE 270C, and the UCLA MACLAB for providing the research context
+on MRI-guided surgical robotics that motivated this project.
+
+\cleardoublepage
+\phantomsection
+
+% T A B L E   O F   C O N T E N T S
+% ----------------------------------
+\renewcommand\contentsname{Table of Contents}
+\tableofcontents
+\cleardoublepage
+\phantomsection
+
+% L I S T   O F   F I G U R E S
+% ------------------------------
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
+\cleardoublepage
+\phantomsection
+
+% L I S T   O F   T A B L E S
+% ----------------------------
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+\cleardoublepage
+\phantomsection
+
+% L I S T   O F   A B B R E V I A T I O N S
+% ------------------------------------------
+\renewcommand*{\abbreviationsname}{List of Abbreviations}
+\printglossary[type=abbreviations]
+\cleardoublepage
+\phantomsection
+
+% L I S T   O F   S Y M B O L S
+% ------------------------------
+\printglossary[type=symbols]
+\cleardoublepage
+\phantomsection
+
+\pagenumbering{arabic}

@@ -1,0 +1,76 @@
+%======================================================================
+\chapter{Conclusion and Future Work}
+\label{ch:conclusion}
+%======================================================================
+
+%----------------------------------------------------------------------
+\section{Summary}
+
+This project developed a modular, 2-D PDE-constrained optimal control
+simulation for MRI-guided microwave thermal ablation.
+The Pennes bioheat equation and Arrhenius damage ODE are discretized
+by finite differences and integrated with a shared forward simulator
+used by all four solver backends (open-loop, indirect PMP, direct NLP,
+and receding-horizon MPC).
+
+The indirect solver derives costate equations analytically from the
+Pontryagin Maximum Principle and updates the control schedule via
+forward-adjoint sweep iteration.
+The direct solver delegates optimization to \texttt{scipy.optimize}
+and trades speed for implementation simplicity.
+The MPC solver demonstrates closed-loop robustness to simulated MRI
+thermometry noise.
+
+%----------------------------------------------------------------------
+\section{Remaining Challenges}
+
+\begin{enumerate}
+    \item \textbf{MPC inner optimizer:}
+        The current \texttt{\_mpc\_horizon\_optimize} uses a bang-off-bang
+        heuristic rather than a true OCP solver.
+        Replacing it with \texttt{solve\_direct()} or \texttt{solve\_indirect()}
+        on the prediction window would yield a proper MPC.
+
+    \item \textbf{Indirect convergence:}
+        The gradient projection algorithm is not globally convergent;
+        the relaxation parameter $\beta$ requires manual tuning.
+        Line-search or conjugate-gradient extensions would improve robustness.
+
+    \item \textbf{Free final time:}
+        $t_f$ is currently fixed at \SI{300}{\second}.
+        Extending to a true free-final-time formulation requires an
+        additional transversality condition and a variable horizon.
+
+    \item \textbf{3-D domain:}
+        Clinical ablation is three-dimensional.
+        The FD grid scales as $O(N^{3/2})$ in 3-D; a multigrid or
+        spectral preconditioner would be needed.
+\end{enumerate}
+
+%----------------------------------------------------------------------
+\section{Future Work}
+
+\begin{itemize}
+    \item Replace single-shooting direct method with direct collocation
+          (e.g., CasADi/IPOPT) for better scalability.
+    \item Incorporate real MRI thermometry data (proton resonance
+          frequency shift maps) as the feedback signal.
+    \item Extend to heterogeneous tissue properties and patient-specific
+          geometry from MRI segmentation.
+    \item Implement safety-critical control (control barrier functions)
+          to enforce the healthy-tissue temperature constraint as a
+          hard constraint rather than a soft penalty.
+\end{itemize}
+
+%----------------------------------------------------------------------
+\section{Expected Contributions}
+
+\begin{enumerate}
+    \item Validated 2-D finite-difference bioheat + damage simulator
+          with four interchangeable solver backends.
+    \item Adjoint solver verified against finite-difference gradient checks.
+    \item Quantitative comparison of open-loop, indirect, direct, and
+          MPC strategies under matched conditions.
+    \item Configurable boundary conditions (Dirichlet / Neumann / Robin)
+          exposed as a command-line argument.
+\end{enumerate}

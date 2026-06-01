@@ -1,0 +1,47 @@
+\contentsline {chapter}{Abstract}{ii}{section*.1}%
+\contentsline {chapter}{Acknowledgements}{iii}{section*.2}%
+\contentsline {chapter}{List of Figures}{vii}{section*.5}%
+\contentsline {chapter}{List of Tables}{viii}{section*.7}%
+\contentsline {chapter}{List of Abbreviations}{ix}{section*.10}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Motivation}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Problem Statement}{1}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Related Work}{2}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Contributions}{2}{section.1.4}%
+\contentsline {section}{\numberline {1.5}Report Organization}{3}{section.1.5}%
+\contentsline {chapter}{\numberline {2}Problem Formulation}{4}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Domain and Geometry}{4}{section.2.1}%
+\contentsline {section}{\numberline {2.2}State Equations}{4}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}State Equation 1 — Pennes Bioheat PDE}{4}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}State Equation 2 — Arrhenius Thermal Damage ODE}{5}{subsection.2.2.2}%
+\contentsline {section}{\numberline {2.3}Boundary Conditions}{5}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Cost Functional (Bolza Form)}{6}{section.2.4}%
+\contentsline {section}{\numberline {2.5}Adjoint Equations and Optimal Control Law}{6}{section.2.5}%
+\contentsline {chapter}{\numberline {3}Methods}{8}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Spatial Discretization}{8}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Time Integration}{8}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Solver Modes}{9}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Mode 0 — Open-Loop Bang-Bang}{9}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Mode 1 — Indirect (PMP Gradient Projection)}{9}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Mode 2 — Direct Single-Shooting NLP}{9}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Mode 3 — Receding-Horizon MPC}{10}{subsection.3.3.4}%
+\contentsline {section}{\numberline {3.4}Constraint Checking}{10}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Software Architecture}{10}{section.3.5}%
+\contentsline {chapter}{\numberline {4}Simulation Results}{12}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Simulation Setup}{12}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Open-Loop Baseline}{12}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Indirect (PMP) Solution}{12}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Solver Comparison}{12}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Boundary Condition Comparison}{15}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Adjoint Gradient Verification}{15}{section.4.6}%
+\contentsline {chapter}{\numberline {5}Conclusion and Future Work}{16}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Summary}{16}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Remaining Challenges}{16}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Future Work}{17}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Expected Contributions}{17}{section.5.4}%
+\contentsline {chapter}{\textbf {References}}{18}{section*.22}%
+\contentsline {chapter}{APPENDICES}{19}{appendix*.24}%
+\contentsline {chapter}{\numberline {A}Simulation Parameters and Commands}{20}{appendix.A}%
+\contentsline {section}{\numberline {A.1}Running the Simulation}{20}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Configuration Quick-Reference}{21}{section.A.2}%
+\contentsline {section}{\numberline {A.3}Module Verification Scripts}{21}{section.A.3}%

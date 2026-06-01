@@ -1,0 +1,52 @@
+\begin{thebibliography}{1}
+
+\bibitem{diederich2004thermal}
+Chris~J. Diederich.
+\newblock Thermal ablation and high-temperature thermal therapy: overview.
+\newblock {\em International Journal of Hyperthermia}, 21(8):745--753, 2004.
+
+\bibitem{garcia2015model}
+D.~Garcia et~al.
+\newblock Model predictive control of thermal ablation using real-time mri
+  thermometry.
+\newblock {\em IEEE Transactions on Biomedical Engineering}, 2015.
+\newblock [Placeholder — replace with actual reference].
+
+\bibitem{henriques1947studies}
+F.~C. Henriques and A.~R. Moritz.
+\newblock Studies of thermal injury: I. the conduction of heat to and through
+  skin and the temperatures attained therein.
+\newblock {\em American Journal of Pathology}, 23(4):531, 1947.
+
+\bibitem{huang2023mri}
+Shaoping Huang, Chuqian Lou, Ying Zhou, Zhao He, Xuejun Jin, Yuan Feng, Anzhu
+  Gao, and Guang-Zhong Yang.
+\newblock {MRI}-guided robot intervention — current state-of-the-art and new
+  challenges.
+\newblock {\em Med-X}, 1(1):4, 2023.
+
+\bibitem{pennes1948analysis}
+Harry~H. Pennes.
+\newblock Analysis of tissue and arterial blood temperatures in the resting
+  human forearm.
+\newblock {\em Journal of Applied Physiology}, 1(2):93--122, 1948.
+
+\bibitem{pontryagin1962mathematical}
+Lev~S. Pontryagin, Vladimir~G. Boltyanskii, Revaz~V. Gamkrelidze, and
+  Evgenii~F. Mishchenko.
+\newblock {\em The Mathematical Theory of Optimal Processes}.
+\newblock Interscience Publishers, 1962.
+
+\bibitem{sapareto1984thermal}
+Stephen~A. Sapareto and William~C. Dewey.
+\newblock Thermal dose determination in cancer therapy.
+\newblock {\em International Journal of Radiation Oncology, Biology, Physics},
+  10(6):787--800, 1984.
+
+\bibitem{troltzsch2010optimal}
+Fredi Tr\"{o}ltzsch.
+\newblock {\em Optimal Control of Partial Differential Equations: Theory,
+  Methods and Applications}.
+\newblock American Mathematical Society, 2010.
+
+\end{thebibliography}
