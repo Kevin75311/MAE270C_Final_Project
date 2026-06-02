@@ -20,6 +20,9 @@ Reference: Henriques & Moritz (1947), Moritz (1947).
            A = 3.1×10⁹⁸ s⁻¹,  E_a = 6.28×10⁵ J/mol  (protein denaturation).
 """
 
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
 import numpy as np
 from config import SimConfig, cfg as default_cfg
 
@@ -163,6 +166,10 @@ class ArrheniusDamage:
 
 
 if __name__ == "__main__":
+    import sys as _sys
+    if hasattr(_sys.stdout, 'reconfigure'):
+        _sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     damage = ArrheniusDamage()
     Omega  = damage.initialize()
     T_test = np.full(default_cfg.domain.N, 60.0)   # 60 °C uniform field

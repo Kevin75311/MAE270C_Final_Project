@@ -23,6 +23,9 @@ physics/bioheat.py — Pennes bioheat equation: discretized state equation #1.
     where the sparse matrices K_d, W_b are assembled in discretization.py.
 """
 
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
 import numpy as np
 from scipy import sparse
 from config import SimConfig, cfg as default_cfg
@@ -160,6 +163,10 @@ class BioHeatSolver:
 
 
 if __name__ == "__main__":
+    import sys as _sys
+    if hasattr(_sys.stdout, 'reconfigure'):
+        _sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
     from physics.sar_model import compute_sar_field
     sar = compute_sar_field()
     solver = BioHeatSolver(cfg=default_cfg, sar_field=sar)

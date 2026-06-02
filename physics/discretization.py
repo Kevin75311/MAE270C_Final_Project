@@ -12,6 +12,9 @@ where:
     B_P = SAR(r) vector                control input map     [N]
 """
 
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
 import numpy as np
 from scipy import sparse
 from config import SimConfig, cfg as default_cfg
@@ -29,51 +32,55 @@ def build_mass_matrix(cfg: SimConfig = default_cfg) -> sparse.csr_matrix:
     return sparse.diags(diag_vals, format='csr')
 
 
+def _build_1d_laplacian(n: int, r: float) -> sparse.csr_matrix:
+    """
+    1D tridiagonal FD Laplacian for n nodes, diffusion coefficient r = k/dξ².
+    Neumann (zero-flux) BCs applied via ghost-cell correction at both ends.
+    """
+    main = np.full(n, -2.0 * r)
+    off  = np.full(n - 1, r)
+    L    = sparse.diags([off, main, off], [-1, 0, 1], shape=(n, n)).tolil()
+    L[0,  0]  += r   # ghost-cell: zero-flux at ξ = 0
+    L[-1, -1] += r   # ghost-cell: zero-flux at ξ = L
+    return L.tocsr()
+
+
 def build_diffusion_matrix(cfg: SimConfig = default_cfg) -> sparse.csr_matrix:
     """
     K_d = k · L_FD   [W / (m² · K)]
 
-    L_FD is the 2D finite-difference Laplacian on a uniform (dx, dy) grid
-    with Neumann (zero-flux) boundary conditions on all edges.
+    Dispatches on cfg.domain.ndim:
 
-    Uses the 5-point stencil:
-        L_FD[i,j] = (T[i+1,j] + T[i-1,j] − 2T[i,j]) / dx²
-                  + (T[i,j+1] + T[i,j-1] − 2T[i,j]) / dy²
+    2D — 5-point stencil via Kronecker sum of two 1D operators:
+        K_d = Iy ⊗ Lx  +  Ly ⊗ Ix
+        State ordering: row-major (Ny, Nx) → flat index j*Nx + i
+
+    3D — 7-point stencil via Kronecker sum of three 1D operators:
+        K_d = Iz ⊗ Iy ⊗ Lx  +  Iz ⊗ Ly ⊗ Ix  +  Lz ⊗ Iy ⊗ Ix
+        State ordering: row-major (Nz, Ny, Nx) → flat index k*Ny*Nx + j*Nx + i
     """
     Nx, Ny = cfg.domain.Nx, cfg.domain.Ny
-    N  = cfg.domain.N
-    k  = cfg.tissue.k
-    dx, dy = cfg.domain.dx, cfg.domain.dy
+    k      = cfg.tissue.k
 
-    rx = k / dx**2   # x-direction diffusion coefficient
-    ry = k / dy**2   # y-direction diffusion coefficient
+    Lx_1d = _build_1d_laplacian(Nx, k / cfg.domain.dx**2)
+    Ly_1d = _build_1d_laplacian(Ny, k / cfg.domain.dy**2)
 
-    # Build 1D tridiagonal operators for x and y separately, then Kronecker-sum
-    # ── x-direction (along columns within each row) ──────────────────────────
-    main_x = np.full(Nx, -2.0 * rx)
-    off_x  = np.full(Nx - 1, rx)
-    Lx_1d  = sparse.diags([off_x, main_x, off_x], [-1, 0, 1], shape=(Nx, Nx))
-
-    # Neumann BC: zero flux at x=0 and x=Lx
-    Lx_1d = Lx_1d.tolil()
-    Lx_1d[0,  0]  += rx   # ghost-cell correction
-    Lx_1d[-1, -1] += rx
-    Lx_1d = Lx_1d.tocsr()
-
-    # ── y-direction (along rows) ──────────────────────────────────────────────
-    main_y = np.full(Ny, -2.0 * ry)
-    off_y  = np.full(Ny - 1, ry)
-    Ly_1d  = sparse.diags([off_y, main_y, off_y], [-1, 0, 1], shape=(Ny, Ny))
-
-    Ly_1d = Ly_1d.tolil()
-    Ly_1d[0,  0]  += ry
-    Ly_1d[-1, -1] += ry
-    Ly_1d = Ly_1d.tocsr()
-
-    # ── 2D Laplacian via Kronecker sum ────────────────────────────────────────
     Ix = sparse.eye(Nx, format='csr')
     Iy = sparse.eye(Ny, format='csr')
-    K_d = sparse.kron(Iy, Lx_1d) + sparse.kron(Ly_1d, Ix)
+
+    if cfg.domain.ndim == 2:
+        # ── 5-point stencil ───────────────────────────────────────────────────
+        K_d = sparse.kron(Iy, Lx_1d) + sparse.kron(Ly_1d, Ix)
+    else:
+        # ── 7-point stencil ───────────────────────────────────────────────────
+        Nz    = cfg.domain.Nz
+        Lz_1d = _build_1d_laplacian(Nz, k / cfg.domain.dz**2)
+        Iz    = sparse.eye(Nz, format='csr')
+        Ixy   = sparse.eye(Nx * Ny, format='csr')
+
+        K_d = (sparse.kron(Iz, sparse.kron(Iy, Lx_1d))   # x-diffusion
+             + sparse.kron(Iz, sparse.kron(Ly_1d, Ix))    # y-diffusion
+             + sparse.kron(Lz_1d, Ixy))                   # z-diffusion
 
     return K_d.tocsr()
 

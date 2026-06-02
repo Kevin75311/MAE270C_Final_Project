@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1780352801.78768 "main.aux" "main.bbl" "main" 1780352808.3276 0
-  "./references.bib" 1780352618 2526 33e4d6a871de95341d2da29504109b52 ""
+["bibtex main"] 1780354224.05619 "main.aux" "main.bbl" "main" 1780354231.34822 0
+  "./references.bib" 1780354215 2374 7f8567a67c6328d010ec6a4c0ef75579 ""
   "C:/Users/Kevin/AppData/Local/Programs/MiKTeX/bibtex/bst/bibtex/plain.bst" 1291864736 20613 bd3fbfa9f64872b81ac57a0dd2ed855f ""
-  "main.aux" 1780352807 11292 415ddd6cd17e5ea55867f498b4ca7c17 "pdflatex"
+  "main.aux" 1780354230 11290 484a6122f4e520407c2d938800693367 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1780352802.2686 "c:/Users/Kevin/Box/2026_Spring/270C/project/mri_ablation_sim/report/main.tex" "main.pdf" "main" 1780352808.33496 0
+["pdflatex"] 1780354224.68458 "c:/Users/Kevin/Box/2026_Spring/270C/project/mri_ablation_sim/report/main.tex" "main.pdf" "main" 1780354231.36064 0
   "C:/Users/Kevin/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1780352787 80909 eab91d9745dd2edfd62a31d53cd5fe15 ""
   "C:/Users/Kevin/AppData/Local/MiKTeX/fonts/pk/ljfour/jknappen/ec/dpi600/tcrm1200.pk" 1778290310 14064 159248fcc0669047496f78f2789d4b46 ""
   "C:/Users/Kevin/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1778290206 13333486 d12b7a662d91464f2907fe87ab510105 ""
@@ -157,19 +157,19 @@
   "chapter-results.tex" 1780352568 6004 7ba9c54cf1b6151d15f9996783607869 ""
   "frontpgs.tex" 1780352419 3402 831b2d71ed3182c6234f2ca0ebc11ec3 ""
   "glossaries.tex" 1780352432 2678 78077220e6703dc92914cc87f3da6c01 ""
-  "main.aux" 1780352807 11292 415ddd6cd17e5ea55867f498b4ca7c17 "pdflatex"
-  "main.bbl" 1780352802 1959 e24b1d6a6c65ee7c0dd54e3953f54e45 "bibtex main"
-  "main.glo" 1780352805 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
-  "main.glo-abr" 1780352807 648 094a85205b9e6f79cabbb67a267f4813 "pdflatex"
-  "main.gls" 1780352804 0 d41d8cd98f00b204e9800998ecf8427e ""
-  "main.gls-abr" 1780352805 1149 39425c74a7147841c482a8118cc7995c ""
-  "main.lof" 1780352807 975 608f73f3580bfdbc8c3e24e1f1f7ffb0 "pdflatex"
-  "main.lot" 1780352807 655 4ed5c78d2bc33529fee647d2b8620384 "pdflatex"
-  "main.out" 1780352807 3114 7f09e63e4cd855c3b1c13c6e9d4f74fd "pdflatex"
-  "main.symbols-glo" 1780352805 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
-  "main.symbols-gls" 1780352805 0 d41d8cd98f00b204e9800998ecf8427e ""
+  "main.aux" 1780354230 11290 484a6122f4e520407c2d938800693367 "pdflatex"
+  "main.bbl" 1780354224 1950 88573a7f73a18334608292e62db3f293 "bibtex main"
+  "main.glo" 1780354228 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  "main.glo-abr" 1780354230 648 094a85205b9e6f79cabbb67a267f4813 "pdflatex"
+  "main.gls" 1780354227 0 d41d8cd98f00b204e9800998ecf8427e ""
+  "main.gls-abr" 1780354227 1149 39425c74a7147841c482a8118cc7995c ""
+  "main.lof" 1780354230 975 608f73f3580bfdbc8c3e24e1f1f7ffb0 "pdflatex"
+  "main.lot" 1780354230 655 4ed5c78d2bc33529fee647d2b8620384 "pdflatex"
+  "main.out" 1780354230 3114 7f09e63e4cd855c3b1c13c6e9d4f74fd "pdflatex"
+  "main.symbols-glo" 1780354228 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  "main.symbols-gls" 1780354228 0 d41d8cd98f00b204e9800998ecf8427e ""
   "main.tex" 1780352398 5151 00c77af9f3e8f7437881a79c0e3d720f ""
-  "main.toc" 1780352807 3769 343c644d7e83035d731cdb53e3902262 "pdflatex"
+  "main.toc" 1780354230 3769 343c644d7e83035d731cdb53e3902262 "pdflatex"
   (generated)
   "main.aux"
   "main.glo"

@@ -8,22 +8,38 @@ Orchestration:
   4. Check constraints
   5. Visualize and save results
 
-Solver modes
-------------
-  openloop  (mode 0) — forward simulation, fixed bang-bang schedule, no optimization
-  indirect  (mode 1) — PMP gradient projection (forward-adjoint sweep iteration)
-  direct    (mode 2) — direct single-shooting NLP via scipy
-  mpc       (mode 3) — receding-horizon Model Predictive Control
+Arguments (all freely combinable)
+----------------------------------
+  --mode    Solver / optimizer
+              openloop  fixed bang-bang power schedule, no optimization (default)
+              indirect  PMP gradient projection (forward-adjoint sweeps)
+              direct    single-shooting NLP via scipy SLSQP
+              mpc       receding-horizon Model Predictive Control
 
-Usage:
-    python main.py --mode openloop
-    python main.py --mode indirect
-    python main.py --mode direct
-    python main.py --mode mpc
-    python main.py --mode openloop --animate
-    python main.py --mode openloop --bc dirichlet   # fixed T_wall (default)
-    python main.py --mode openloop --bc neumann     # insulated / zero-flux
-    python main.py --mode openloop --bc robin       # convective cooling
+  --ndim    Spatial dimensionality
+              2         2D x-y slice, isotropic Gaussian SAR (default)
+              3         3D volume, anisotropic / line SAR along probe z-axis
+
+  --bc      Boundary condition on ∂Ω
+              dirichlet fixed wall temperature T_wall = 37 °C (default)
+              neumann   zero heat flux — insulated boundary
+              robin     convective cooling  h_c, T_inf from config.py
+
+  --probe   SAR / antenna model
+              point     isotropic Gaussian blob (2D) or anisotropic Gaussian (3D) (default)
+              line      cylindrical heating zone of length L_active with Gaussian end-cap rolloff
+              dipole    sin²(θ) toroidal near-field pattern (slot antenna approximation)
+
+  --animate generate a GIF animation of the ablation (2D only, slow)
+  --no-save skip saving the trajectory npz file to results/
+
+Example combinations
+--------------------
+  python main.py                                        # openloop, 2D, dirichlet, point
+  python main.py --mode indirect --probe line           # PMP + realistic needle, 2D
+  python main.py --mode mpc --ndim 3 --probe line       # MPC, 3D, line source
+  python main.py --mode direct --bc robin --probe dipole
+  python main.py --mode openloop --ndim 3 --bc neumann --probe line --animate
 """
 
 import argparse
@@ -53,20 +69,24 @@ from utils.io_utils import save_trajectory
 from utils.validators import check_stability_cfl, check_temperature_physical
 
 
-def main(mode: str = 'openloop', bc: str = None,
-         save: bool = True, animate: bool = False):
+def main(mode: str = 'openloop', bc: str = None, ndim: int = None,
+         probe: str = None, save: bool = True, animate: bool = False):
     # ─────────────────────────────────────────────────────────────────────────
     # 1. Configuration summary
     # ─────────────────────────────────────────────────────────────────────────
+    if ndim is not None:
+        cfg.domain.ndim = ndim
     if bc is not None:
         cfg.boundary.bc_type = bc
+    if probe is not None:
+        cfg.sar.probe_model = probe
     cfg.summary()
 
     # ─────────────────────────────────────────────────────────────────────────
     # 2. Mesh and stability validation
     # ─────────────────────────────────────────────────────────────────────────
     print("\n── Mesh & stability check ──────────────────────────────────────")
-    X, Y, xv, yv = build_mesh(cfg)
+    X, Y, Z, xv, yv, zv = build_mesh(cfg)
     tumor_mask, healthy_mask, margin_mask = build_region_masks(cfg)
     print(f"  Voxels: {cfg.domain.Nx} × {cfg.domain.Ny} = {cfg.domain.N}")
     print(f"  Tumor: {tumor_mask.sum()} voxels  |  "
@@ -186,6 +206,10 @@ if __name__ == "__main__":
             "mpc=receding-horizon MPC"
         ))
     parser.add_argument(
+        '--ndim', type=int, default=None,
+        choices=[2, 3],
+        help="Simulation dimensionality: 2=2D (default), 3=3D with probe z-axis geometry")
+    parser.add_argument(
         '--bc', type=str, default=None,
         choices=['dirichlet', 'neumann', 'robin'],
         help=(
@@ -194,10 +218,20 @@ if __name__ == "__main__":
             "neumann=zero-flux (insulated), "
             "robin=convective cooling (h_c, T_inf from config.py)"
         ))
+    parser.add_argument(
+        '--probe', type=str, default=None,
+        choices=['point', 'line', 'dipole'],
+        help=(
+            "Probe SAR model: "
+            "point=isotropic Gaussian (default), "
+            "line=cylindrical active zone with end-cap falloff, "
+            "dipole=sin²(θ) toroidal near-field pattern"
+        ))
     parser.add_argument('--animate', action='store_true',
                         help="Generate GIF animation (slow)")
     parser.add_argument('--no-save', action='store_true',
                         help="Do not save trajectory to disk")
     args = parser.parse_args()
 
-    main(mode=args.mode, bc=args.bc, save=not args.no_save, animate=args.animate)
+    main(mode=args.mode, bc=args.bc, ndim=args.ndim, probe=args.probe,
+         save=not args.no_save, animate=args.animate)

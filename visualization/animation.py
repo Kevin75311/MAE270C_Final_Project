@@ -36,8 +36,8 @@ def animate_ablation(T_history: np.ndarray,
     if fps is None:
         fps = cfg.viz.animation_fps
 
-    X, Y, _, _ = build_mesh(cfg)
-    cx, cy     = cfg.domain.tumor_center
+    X, Y, _, _, _, _ = build_mesh(cfg)
+    cx, cy     = cfg.domain.tumor_center[:2]
     r_tumor    = cfg.domain.tumor_radius
 
     indices = range(0, len(t_vec), stride)

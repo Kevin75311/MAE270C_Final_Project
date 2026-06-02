@@ -71,7 +71,7 @@ def test_mesh_geometry():
 
     Visual: domain partition map, tumor mask, and distance field.
     """
-    X, Y, xv, yv = build_mesh(cfg)
+    X, Y, _, xv, yv, _ = build_mesh(cfg)
     tumor, healthy, margin = build_region_masks(cfg)
 
     # ── Assertions ────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ def test_mesh_geometry():
     region_map[margin]  = 1.0
     region_map[healthy] = 0.0
 
-    cx, cy = cfg.domain.tumor_center
+    cx, cy = cfg.domain.tumor_center[:2]
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
 
     # Panel 1: combined region map
@@ -157,8 +157,8 @@ def test_sar_field():
     Visual: 2D SAR heatmap and radial profile vs expected Gaussian.
     """
     sar = compute_sar_field(cfg=cfg)
-    X, Y, _, _ = build_mesh(cfg)
-    xp, yp = cfg.domain.probe_position
+    X, Y, _, _, _, _ = build_mesh(cfg)
+    xp, yp = cfg.domain.probe_position[:2]
     sigma  = cfg.sar.sigma_sar
 
     # ── Assertions ────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ def test_discretization_matrices():
           f"{M_inv_A.diagonal().max():.3e}]")
 
     # ── Figure ────────────────────────────────────────────────────────────
-    X, Y, _, _ = build_mesh(cfg)
+    X, Y, _, _, _, _ = build_mesh(cfg)
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
 
     axes[0].spy(K_d, markersize=0.5, color='navy')
@@ -329,7 +329,7 @@ def test_boundary_conditions():
           f"[{T_rob2d[0,:].min():.1f}, {T_rob2d[0,:].max():.1f}] °C [OK]")
 
     # ── Figure ────────────────────────────────────────────────────────────
-    X, Y, _, _ = build_mesh(cfg)
+    X, Y, _, _, _, _ = build_mesh(cfg)
     norm = Normalize(vmin=15, vmax=65)
     fig, axes = plt.subplots(1, 4, figsize=(16, 4.5))
     labels = ['Input (60°C uniform)', f'Dirichlet\n(T_boundary={T_val}°C)',
@@ -384,7 +384,7 @@ def test_bioheat_no_power():
           f"[{T.min():.2f}, {T.max():.2f}] °C")
 
     # ── Figure ────────────────────────────────────────────────────────────
-    X, Y, _, _ = build_mesh(cfg)
+    X, Y, _, _, _, _ = build_mesh(cfg)
     norm = Normalize(vmin=36, vmax=42)
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
 
@@ -611,7 +611,7 @@ def test_arrhenius_accumulation():
           f"(ratio = {t_crossed/t_analytical:.3f})")
 
     # ── Figure ────────────────────────────────────────────────────────────
-    X, Y, _, _ = build_mesh(cfg)
+    X, Y, _, _, _, _ = build_mesh(cfg)
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
 
     # Omega field at crossing

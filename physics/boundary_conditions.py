@@ -10,19 +10,39 @@ Supports three BC types on ∂Ω:
 Call apply_boundary_conditions() each timestep AFTER the ODE update.
 """
 
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
 import numpy as np
 from config import SimConfig, cfg as default_cfg
 from physics.mesh import unflatten, flatten
 
 
 def _boundary_indices(cfg: SimConfig):
-    """Return flat indices of all boundary voxels (outer ring of the grid)."""
+    """
+    Return flat indices of all boundary voxels.
+
+    2D: outer ring of the (Ny, Nx) grid — 4 edges
+    3D: outer shell of the (Nz, Ny, Nx) grid — 6 faces
+    """
     Nx, Ny = cfg.domain.Nx, cfg.domain.Ny
     idx = []
-    for j in range(Ny):
-        for i in range(Nx):
-            if i == 0 or i == Nx-1 or j == 0 or j == Ny-1:
-                idx.append(j * Nx + i)
+
+    if cfg.domain.ndim == 2:
+        for j in range(Ny):
+            for i in range(Nx):
+                if i == 0 or i == Nx-1 or j == 0 or j == Ny-1:
+                    idx.append(j * Nx + i)
+    else:
+        Nz = cfg.domain.Nz
+        for k in range(Nz):
+            for j in range(Ny):
+                for i in range(Nx):
+                    if (i == 0 or i == Nx-1 or
+                            j == 0 or j == Ny-1 or
+                            k == 0 or k == Nz-1):
+                        idx.append(k * Ny * Nx + j * Nx + i)
+
     return np.array(idx, dtype=int)
 
 
@@ -60,34 +80,46 @@ def apply_robin(T_flat: np.ndarray,
     """
     Robin (convective) BC:  k ∂T/∂n + h_c·(T − T_inf) = 0
 
-    Implemented as a correction to the boundary voxel temperatures via
-    a one-sided finite-difference approximation:
+    One-sided FD approximation at each boundary face:
+        T_boundary = (k·T_interior + h_c·dξ·T_inf) / (k + h_c·dξ)
 
-        T_boundary_new = (k·T_interior + h_c·dx·T_inf) / (k + h_c·dx)
+    2D: 4 edges (left/right/bottom/top)
+    3D: 6 faces (±x, ±y, ±z)
 
     Parameters
     ----------
     h_c   : convective heat transfer coefficient  [W/(m²·K)]
     T_inf : ambient / fluid temperature           [°C]
     """
-    T_2d  = unflatten(T_flat, cfg)
+    T_nd  = unflatten(T_flat, cfg)    # (Ny,Nx) in 2D  or  (Nz,Ny,Nx) in 3D
     k     = cfg.tissue.k
     dx    = cfg.domain.dx
     dy    = cfg.domain.dy
-    Nx, Ny = cfg.domain.Nx, cfg.domain.Ny
 
     denom_x = k + h_c * dx
     denom_y = k + h_c * dy
 
-    # Left / right walls (x = 0 and x = Lx)
-    T_2d[:, 0]    = (k * T_2d[:, 1]    + h_c * dx * T_inf) / denom_x
-    T_2d[:, -1]   = (k * T_2d[:, -2]   + h_c * dx * T_inf) / denom_x
+    if cfg.domain.ndim == 2:
+        # Left / right walls  (x dimension = axis 1)
+        T_nd[:, 0]    = (k * T_nd[:, 1]    + h_c * dx * T_inf) / denom_x
+        T_nd[:, -1]   = (k * T_nd[:, -2]   + h_c * dx * T_inf) / denom_x
+        # Bottom / top walls  (y dimension = axis 0)
+        T_nd[0,  :]   = (k * T_nd[1,  :]   + h_c * dy * T_inf) / denom_y
+        T_nd[-1, :]   = (k * T_nd[-2, :]   + h_c * dy * T_inf) / denom_y
+    else:
+        dz     = cfg.domain.dz
+        denom_z = k + h_c * dz
+        # x faces  (axis 2)
+        T_nd[:, :, 0]  = (k * T_nd[:, :, 1]  + h_c * dx * T_inf) / denom_x
+        T_nd[:, :, -1] = (k * T_nd[:, :, -2] + h_c * dx * T_inf) / denom_x
+        # y faces  (axis 1)
+        T_nd[:, 0, :]  = (k * T_nd[:, 1, :]  + h_c * dy * T_inf) / denom_y
+        T_nd[:, -1, :] = (k * T_nd[:, -2, :] + h_c * dy * T_inf) / denom_y
+        # z faces  (axis 0)
+        T_nd[0, :, :]  = (k * T_nd[1, :, :]  + h_c * dz * T_inf) / denom_z
+        T_nd[-1, :, :] = (k * T_nd[-2, :, :] + h_c * dz * T_inf) / denom_z
 
-    # Bottom / top walls (y = 0 and y = Ly)
-    T_2d[0,  :]   = (k * T_2d[1,  :]   + h_c * dy * T_inf) / denom_y
-    T_2d[-1, :]   = (k * T_2d[-2, :]   + h_c * dy * T_inf) / denom_y
-
-    return flatten(T_2d)
+    return flatten(T_nd)
 
 
 def apply_boundary_conditions(T_flat: np.ndarray,

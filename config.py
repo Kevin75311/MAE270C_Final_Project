@@ -16,23 +16,28 @@ from typing import Tuple
 @dataclass
 class DomainConfig:
     """Spatial domain and mesh settings."""
-    # 2D domain size [m]
+    # Simulation dimensionality: 2 or 3
+    ndim: int = 2
+
+    # Domain size [m]
     Lx: float = 0.05          # domain width:  5 cm
     Ly: float = 0.05          # domain height: 5 cm
+    Lz: float = 0.05          # domain depth:  5 cm  (used when ndim=3)
 
     # Mesh resolution
     Nx: int = 50              # number of voxels in x
     Ny: int = 50              # number of voxels in y
+    Nz: int = 50              # number of voxels in z (used when ndim=3)
 
-    # Tumor (target) region — centred in domain
-    tumor_center: Tuple[float, float] = (0.025, 0.025)   # [m]
-    tumor_radius: float = 0.008                            # 8 mm radius
+    # Tumor (target) region — centred in domain; always a 3-tuple (x, y, z)
+    tumor_center: tuple = (0.025, 0.025, 0.025)   # [m]
+    tumor_radius: float = 0.008                    # 8 mm radius
 
     # Safety margin around tumor (transition zone)
     safety_margin: float = 0.003   # 3 mm
 
-    # Probe / applicator position
-    probe_position: Tuple[float, float] = (0.025, 0.025)  # centred on tumour
+    # Probe / applicator position — always a 3-tuple (x, y, z)
+    probe_position: tuple = (0.025, 0.025, 0.025)  # centred on tumour
 
     @property
     def dx(self) -> float:
@@ -43,9 +48,13 @@ class DomainConfig:
         return self.Ly / self.Ny
 
     @property
+    def dz(self) -> float:
+        return self.Lz / self.Nz
+
+    @property
     def N(self) -> int:
-        """Total number of voxels."""
-        return self.Nx * self.Ny
+        """Total number of voxels (Nx·Ny in 2D, Nx·Ny·Nz in 3D)."""
+        return self.Nx * self.Ny * (self.Nz if self.ndim == 3 else 1)
 
 
 @dataclass
@@ -92,17 +101,35 @@ class ArrheniusConfig:
 class SARConfig:
     """
     Specific Absorption Rate (SAR) model for the microwave applicator.
-    Gaussian approximation of antenna near-field pattern.
+
+    Three probe models are supported (set via probe_model):
+
+      'point'  — isotropic Gaussian blob (2D) or anisotropic Gaussian (3D).
+                 Fast baseline; assumes needle is perpendicular to the image plane.
+
+      'line'   — cylindrical heating zone of length L_active along probe_direction,
+                 with Gaussian end-cap rolloff past the active tips.
+                 Most realistic for a microwave needle in the r-z plane.
+
+      'dipole' — sin²(θ) toroidal radiation pattern × Gaussian radial decay.
+                 Approximates the near-field of a half-wave slot antenna.
     """
-    # Gaussian SAR spatial distribution
-    sigma_sar: float = 0.006     # Gaussian width (beam spread) [m]
+    # ── Spatial spread parameters ─────────────────────────────────────────────
+    sigma_sar:   float = 0.006   # radial spread ⊥ to needle axis       [m]  (all models)
+    sigma_sar_z: float = 0.005   # axial end-cap falloff beyond L_active [m]  (line model)
+                                  # also: full axial Gaussian for 'point' in 3D
+                                  # keep small (≤ L_active/4) so the flat plateau is visible
 
-    # Peak SAR per unit power [W/kg / W] = [1/kg]
-    # With P_max=50W: T_max(tumor) ≈ 82°C after 120s — above ablation threshold
-    sar_peak: float = 50.0       # calibrated to tissue properties
+    # ── Peak SAR per unit power [W/kg per W applied] ──────────────────────────
+    sar_peak: float = 50.0       # at probe centre; calibrated to tissue properties
 
-    # Applicator frequency (informational only — affects sar_peak calibration)
-    freq_GHz: float = 2.45       # microwave frequency          [GHz]
+    # ── Applicator frequency (informational; affects sar_peak calibration) ────
+    freq_GHz: float = 2.45       # microwave frequency                   [GHz]
+
+    # ── Probe geometry model ──────────────────────────────────────────────────
+    probe_model: str = 'point'           # 'point' | 'line' | 'dipole'
+    L_active:    float = 0.030           # active antenna length             [m]  (line model)
+    probe_direction: tuple = (0, 0, 1)   # unit vector along needle axis (z-axis default)
 
 
 @dataclass
@@ -215,10 +242,16 @@ class SimConfig:
         print("=" * 60)
         print("  MRI Ablation Simulation — Configuration Summary")
         print("=" * 60)
-        print(f"  Domain:      {self.domain.Lx*100:.1f} x {self.domain.Ly*100:.1f} cm,  "
-              f"{self.domain.Nx} x {self.domain.Ny} voxels  (dx = {self.domain.dx*1000:.2f} mm)")
-        print(f"  Tumor:       r = {self.domain.tumor_radius*1000:.1f} mm  "
-              f"@ ({self.domain.tumor_center[0]*100:.1f}, {self.domain.tumor_center[1]*100:.1f}) cm")
+        d = self.domain
+        if d.ndim == 2:
+            print(f"  Domain:      {d.Lx*100:.1f} x {d.Ly*100:.1f} cm  [2D],  "
+                  f"{d.Nx} x {d.Ny} = {d.N} voxels  (dx={d.dx*1000:.2f} mm)")
+        else:
+            print(f"  Domain:      {d.Lx*100:.1f} x {d.Ly*100:.1f} x {d.Lz*100:.1f} cm  [3D],  "
+                  f"{d.Nx} x {d.Ny} x {d.Nz} = {d.N} voxels  (dx={d.dx*1000:.2f} mm)")
+        print(f"  Tumor:       r = {d.tumor_radius*1000:.1f} mm  "
+              f"@ ({d.tumor_center[0]*100:.1f}, {d.tumor_center[1]*100:.1f}"
+              + (f", {d.tumor_center[2]*100:.1f}" if d.ndim == 3 else "") + ") cm")
         print(f"  Tissue:      k = {self.tissue.k} W/(m·K),  "
               f"ω_b = {self.tissue.omega_b} s⁻¹")
         print(f"  Control:     P ∈ [{self.control.P_min}, {self.control.P_max}] W,  "
@@ -232,6 +265,17 @@ class SimConfig:
                      else f"h_c={bc.h_c} W/(m²·K), T_inf={bc.T_inf}°C" if bc.bc_type == 'robin'
                      else "zero-flux")
         print(f"  Boundary:    {bc.bc_type}  ({bc_detail})")
+        s = self.sar
+        if s.probe_model == 'point':
+            probe_detail = f"σ_r={s.sigma_sar*1e3:.1f} mm"
+            if d.ndim == 3:
+                probe_detail += f", σ_z={s.sigma_sar_z*1e3:.1f} mm"
+        elif s.probe_model == 'line':
+            probe_detail = (f"L={s.L_active*1e3:.0f} mm, σ_r={s.sigma_sar*1e3:.1f} mm, "
+                            f"σ_end={s.sigma_sar_z*1e3:.1f} mm, d̂={s.probe_direction}")
+        else:
+            probe_detail = f"σ={s.sigma_sar*1e3:.1f} mm, d̂={s.probe_direction}"
+        print(f"  Probe:       {s.probe_model}  ({probe_detail})")
         print("=" * 60)
 
 

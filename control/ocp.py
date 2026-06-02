@@ -21,7 +21,7 @@ All integrals over Ω are approximated as sums over voxels × voxel area.
 
 import numpy as np
 from config import SimConfig, cfg as default_cfg
-from physics.mesh import build_region_masks, voxel_area
+from physics.mesh import build_region_masks, voxel_volume
 
 
 class CostFunctional:
@@ -31,7 +31,7 @@ class CostFunctional:
 
     def __init__(self, cfg: SimConfig = default_cfg):
         self.cfg  = cfg
-        self.dA   = voxel_area(cfg)   # voxel area [m²]
+        self.dA   = voxel_volume(cfg)  # voxel volume [m³] in 3D, area [m²] in 2D
 
         # Build region masks once
         tumor_2d, healthy_2d, _ = build_region_masks(cfg)
