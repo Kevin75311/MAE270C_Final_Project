@@ -1,0 +1,45 @@
+{
+  "run_name": "openloop_2_dirichlet_point_20260603_140330",
+  "timestamp": "2026-06-03T14:03:51.727726",
+  "cost": {
+    "J_total": 10.350000000000001,
+    "J_running": 1.1500000000000008,
+    "J_terminal": 9.200000000000001,
+    "J_energy": 0.23000000000000015,
+    "J_healthy": 0.0,
+    "J_time_rate": 0.9200000000000006,
+    "J_ablation": 0.0,
+    "J_tf": 9.200000000000001
+  },
+  "constraints": {
+    "path": {
+      "max_temperature_violation_degC": 2.5680984410358647,
+      "any_control_violation": false,
+      "satisfied": false
+    },
+    "terminal": {
+      "ablation": {
+        "fraction_ablated": 1.0,
+        "mean_omega_tumor": 15438.143690511582,
+        "min_omega_tumor": 1.030931042337122,
+        "satisfied": true,
+        "satisfied_95pct": true
+      },
+      "time": {
+        "t_f": 92.0,
+        "T_max": 600.0,
+        "satisfied": true
+      },
+      "all_satisfied": true
+    },
+    "overall_satisfied": false
+  },
+  "cfg": {
+    "Nx": 50,
+    "Ny": 50,
+    "dt": 1.0,
+    "t_final": 300.0,
+    "P_max": 50.0,
+    "T_safe": 45.0
+  }
+}
