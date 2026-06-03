@@ -1,0 +1,9 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Generated simulation run outputs.
+# Keep the placeholder and the committed visual-test baselines under results/tests/.
+/results/*
+!/results/.gitkeep
+!/results/tests/
