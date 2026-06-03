@@ -119,6 +119,32 @@ class ConstraintChecker:
             'all_satisfied': ablation['satisfied_95pct'] and time_c['satisfied'],
         }
 
+    def safety_margin(self, T_history: np.ndarray) -> float:
+        """
+        Minimum over time of (T_safe − max_{Ω_H} T).
+
+        >= 0  ⇔  T(r,t) ≤ T_safe for all healthy voxels at all timesteps.
+
+        Used as a hard SLSQP inequality constraint (type='ineq') in
+        time-optimal mode.  SLSQP requires the constraint value to be ≥ 0 for
+        feasibility, which is satisfied when the temperature never exceeds T_safe
+        anywhere in healthy tissue over the simulated trajectory.
+
+        Parameters
+        ----------
+        T_history : np.ndarray, shape (n_steps+1, N)
+            Temperature field at each timestep (flat spatial layout).
+
+        Returns
+        -------
+        float
+            T_safe − max_{t, r ∈ Ω_H} T(r, t).
+            Positive → feasible; negative → violated.
+        """
+        T_safe = self.cfg.control.T_safe
+        worst_max = float(T_history[:, self.healthy_mask].max())
+        return T_safe - worst_max
+
     # ── Full trajectory summary ───────────────────────────────────────────────
 
     def check_trajectory(self, T_history: np.ndarray,

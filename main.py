@@ -44,7 +44,15 @@ Example combinations
 
 import argparse
 import os
+import sys
 import numpy as np
+from datetime import datetime
+
+# Console summaries use Unicode (°, ⁻¹, ²).  When stdout is redirected to a
+# file/pipe on Windows it defaults to a legacy codec (cp950/cp1252) that cannot
+# encode these, crashing before the solver runs.  Force UTF-8 if available.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from config import cfg
 
@@ -65,12 +73,13 @@ from visualization.control_plots import (plot_power_history, plot_temperature_hi
                                          plot_ablation_progress, plot_cost_breakdown)
 from visualization.animation import animate_ablation
 
-from utils.io_utils import save_trajectory
+from utils.io_utils import save_trajectory, save_config
 from utils.validators import check_stability_cfl, check_temperature_physical
 
 
 def main(mode: str = 'openloop', bc: str = None, ndim: int = None,
-         probe: str = None, save: bool = True, animate: bool = False):
+         probe: str = None, save: bool = True, animate: bool = False,
+         objective: str = 'energy'):
     # ─────────────────────────────────────────────────────────────────────────
     # 1. Configuration summary
     # ─────────────────────────────────────────────────────────────────────────
@@ -80,6 +89,22 @@ def main(mode: str = 'openloop', bc: str = None, ndim: int = None,
         cfg.boundary.bc_type = bc
     if probe is not None:
         cfg.sar.probe_model = probe
+
+    # ── Objective mode (time-optimal vs energy-optimal) ───────────────────────
+    if objective == 'time':
+        cfg.cost.mode = 'time'
+        cfg.solver.enforce_safety_hard = True
+        if mode != 'direct':
+            print(f"[INFO] --objective time is fully implemented for --mode direct; "
+                  f"cost weights are updated for mode '{mode}' but the hard safety "
+                  f"constraint is only applied by the direct SLSQP solver.")
+    # 'energy' is the default; no changes needed.
+
+    # Redirect all output into results/<mode>_<ndim>_<bc>_<probe>_<timestamp>/
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_tag = f"{mode}_{cfg.domain.ndim}_{cfg.boundary.bc_type}_{cfg.sar.probe_model}_{timestamp}"
+    cfg.viz.output_dir = os.path.join('results', run_tag)
+
     cfg.summary()
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -101,6 +126,7 @@ def main(mode: str = 'openloop', bc: str = None, ndim: int = None,
     # ─────────────────────────────────────────────────────────────────────────
     print(f"\n── Solver mode: {mode.upper()} ──────────────────────────────────────")
     os.makedirs(cfg.viz.output_dir, exist_ok=True)
+    save_config(cfg, cfg.viz.output_dir)
 
     if mode == 'openloop':
         # Mode 0: fixed bang-bang schedule, no optimization
@@ -141,19 +167,20 @@ def main(mode: str = 'openloop', bc: str = None, ndim: int = None,
     Om_hist = result['Omega_history']
     u_hist  = result['u_history']
     t_vec   = result['t_vec']
-    t_f     = t_vec[-1]
+    t_f     = result['t_f']     # treatment-end (optimal stopping) time
+    t_end   = t_vec[-1]         # end of recorded trajectory (t_f* + cooldown)
     out     = cfg.viz.output_dir
 
     plot_temperature_field(
-        T_hist[-1], t=t_f, cfg=cfg,
+        T_hist[-1], t=t_end, cfg=cfg,
         save_path=os.path.join(out, 'T_final.png'))
 
     plot_damage_field(
-        Om_hist[-1], t=t_f, cfg=cfg,
+        Om_hist[-1], t=t_end, cfg=cfg,
         save_path=os.path.join(out, 'damage_final.png'))
 
     plot_necrosis_boundary(
-        Om_hist[-1], T_hist[-1], t=t_f, cfg=cfg,
+        Om_hist[-1], T_hist[-1], t=t_end, cfg=cfg,
         save_path=os.path.join(out, 'necrosis_boundary.png'))
 
     n = len(t_vec)
@@ -182,12 +209,15 @@ def main(mode: str = 'openloop', bc: str = None, ndim: int = None,
     # 6. Save trajectory
     # ─────────────────────────────────────────────────────────────────────────
     if save:
-        save_trajectory(result, run_name=f"run_{mode}", cfg=cfg)
+        save_trajectory(result, run_name=run_tag, cfg=cfg)
 
     print(f"\n── Done.  Results in: {out}/ ────────────────────────────────────")
     print(f"  J_total = {result['cost']['J_total']:.4e}")
     frac = result['constraints']['terminal']['ablation']['fraction_ablated']
     print(f"  Ablation completeness: {frac:.1%}")
+    print(f"  Treatment end (free t_f): {t_f:.1f} s  |  "
+          f"trajectory shown to {t_end:.1f} s "
+          f"(+{t_end - t_f:.0f}s cooldown, applicator off)")
 
     return result
 
@@ -231,7 +261,15 @@ if __name__ == "__main__":
                         help="Generate GIF animation (slow)")
     parser.add_argument('--no-save', action='store_true',
                         help="Do not save trajectory to disk")
+    parser.add_argument(
+        '--objective', type=str, default='energy',
+        choices=['energy', 'time'],
+        help=(
+            "Objective type for direct mode: "
+            "energy=energy-aware Bolza cost with soft safety penalty (default), "
+            "time=time-optimal with tiny energy regularization and hard T_safe constraint"
+        ))
     args = parser.parse_args()
 
     main(mode=args.mode, bc=args.bc, ndim=args.ndim, probe=args.probe,
-         save=not args.no_save, animate=args.animate)
+         save=not args.no_save, animate=args.animate, objective=args.objective)

@@ -38,9 +38,16 @@ class CostFunctional:
         self.tumor_mask   = tumor_2d.ravel()    # shape (N,)
         self.healthy_mask = healthy_2d.ravel()  # shape (N,)
 
-        # Cost weights (shorthand references)
-        self.alpha1 = cfg.cost.alpha1
-        self.alpha2 = cfg.cost.alpha2
+        # Cost weights (shorthand references).
+        # In 'time' mode: drop energy penalty to a tiny regularization value and
+        # zero the soft safety penalty (safety is enforced as a hard SLSQP
+        # constraint instead, so alpha2 here would double-count it).
+        if cfg.cost.mode == 'time':
+            self.alpha1 = cfg.cost.alpha1_time  # tiny regularization
+            self.alpha2 = 0.0                   # safety as hard constraint instead
+        else:
+            self.alpha1 = cfg.cost.alpha1
+            self.alpha2 = cfg.cost.alpha2
         self.alpha3 = cfg.cost.alpha3
         self.gamma1 = cfg.cost.gamma1
         self.gamma2 = cfg.cost.gamma2

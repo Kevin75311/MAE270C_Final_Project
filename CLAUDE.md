@@ -97,8 +97,11 @@ Terminal conditions:
 
 Pontryagin optimal control law (projection onto control bounds):
 ```
-P*(t) = clip( λ_Tᵀ B_P / (2α₁),  0,  P_max )
+P*(t) = clip( −λ_Tᵀ B_P / (2α₁),  0,  P_max )
 ```
+The leading minus sign is required: minimizing `ℋ = L + λᵀf` gives
+`∂ℋ/∂P = 2α₁P + λ_Tᵀb_P = 0 ⟹ P* = −λ_Tᵀb_P/(2α₁)`. `λ_T` is negative in the
+tumor during heating, so `−λ_Tᵀb_P > 0` turns the applicator on.
 
 ### Module map
 
@@ -146,7 +149,8 @@ All three solvers (`forward_simulate`, `solve_open_loop`, `solve_mpc`) return th
 - **Flat spatial arrays** — temperature and damage are stored as 1D vectors of length `N = Nx × Ny` (row-major). Region masks from `build_region_masks(cfg)` are 2D arrays; call `.ravel()` before indexing into flat state vectors.
 - **System matrices built once** — `BioHeatSolver.__init__` assembles the sparse diffusion and perfusion matrices; they are reused every timestep.
 - **`direct` mode is slow** — re-integrates the full PDE at every optimizer function evaluation (single-shooting). For large grids, use `indirect` (adjoint gradients) or direct collocation (CasADi).
-- **`indirect` convergence** — the gradient projection algorithm uses a relaxation parameter β (default 0.5). If it oscillates, reduce β; if it converges slowly, increase it. The algorithm is not guaranteed to converge for all cost weight combinations.
+- **Free final time** — `forward_simulate(..., free_final_time=True)` (the default) truncates the trajectory at the optimal stopping instant `t_f* = optimal_stop_index()`, the first step where the whole tumor satisfies `Ω_d ≥ 1`. Because the running cost is strictly positive and `γ₂ > 0`, the transversality condition `ℋ(t_f) = −γ₂` is infeasible, so the optimum sits on the active terminal constraint — running longer only wastes cost. All reported costs (incl. `γ₂·t_f`) use `t_f*`, not the fixed horizon. `solve_direct`'s objective applies the same early stop so the optimizer actively minimizes `t_f`. Pass `free_final_time=False` to report the full fixed-horizon run.
+- **`indirect` convergence** — the gradient projection algorithm uses a relaxation parameter β (default 0.15). The Pontryagin control is bang-bang, so a large β (e.g. 0.5) makes the fixed-point iteration limit-cycle between "under-ablated→full power" and "ablated→zero power" and stall; β≈0.15 damps this. If it still oscillates, reduce β further; if it converges slowly, increase it. Not guaranteed to converge for all cost-weight combinations.
 - **MPC horizon optimizer is a heuristic** — `_mpc_horizon_optimize` in `solver.py` uses a bang-off-bang rule, not a true OCP solver. Replace with `solve_direct()` or `solve_indirect()` on the horizon window for a real MPC.
 
 ## Parameter quick-reference
@@ -158,7 +162,7 @@ All three solvers (`forward_simulate`, `solve_open_loop`, `solve_mpc`) return th
 | A, E_a | `ArrheniusConfig.A/E_a` | 3.1×10⁹⁸, 6.28×10⁵ | s⁻¹, J/mol |
 | P_max, T_safe | `ControlConfig.P_max/T_safe` | 50.0, 45.0 | W, °C |
 | α₁, α₂, α₃ | `CostConfig.alpha1/2/3` | 1e-4, 1.0, 0.01 | — |
-| γ₁, γ₂ | `CostConfig.gamma1/2` | 10.0, 0.1 | — |
+| γ₁, γ₂ | `CostConfig.gamma1/2` | 1e6, 0.1 | — |
 | dt, t_final | `SolverConfig.dt/t_final` | 1.0, 300.0 | s |
 
 ## Coding conventions

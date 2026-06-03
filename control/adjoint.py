@@ -25,7 +25,7 @@ The adjoint variables λ = [λ_T, λ_Ω]ᵀ satisfy:
 
     OPTIMAL CONTROL LAW (Pontryagin):
     ┌──────────────────────────────────────────────────────────────────────┐
-    │  P*(t) = proj_{[0, P_max]} ( λ_Tᵀ · b_P / (2α1) )                │
+    │  P*(t) = proj_{[0, P_max]} ( −λ_Tᵀ · b_P / (2α1) )               │
     └──────────────────────────────────────────────────────────────────────┘
 """
 
@@ -145,8 +145,12 @@ class AdjointSolver:
         ┌──────────────────────────────────────────────────────────┐
         │  OPTIMAL CONTROL LAW (Pontryagin Minimum Principle)     │
         │                                                          │
-        │  P*(t) = proj_{[0, P_max]} ( λ_Tᵀ · b_P / (2α1) )    │
+        │  P*(t) = proj_{[0, P_max]} ( −λ_Tᵀ · b_P / (2α1) )   │
         └──────────────────────────────────────────────────────────┘
+
+        Minimizing ℋ = L + λᵀf gives ∂ℋ/∂P = 2α1·P + λ_Tᵀb_P = 0,
+        hence P* = −λ_Tᵀb_P / (2α1).  The minus sign is required: λ_T is
+        negative in the tumor during heating, so −λ_Tᵀb_P > 0 drives P* up.
 
         Parameters
         ----------
@@ -154,7 +158,7 @@ class AdjointSolver:
         b_P   : control input map (SAR × ρ × M⁻¹) shape (N,)
         """
         alpha1 = self.cfg.cost.alpha1
-        P_opt  = np.dot(lam_T, b_P) / (2.0 * alpha1)
+        P_opt  = -np.dot(lam_T, b_P) / (2.0 * alpha1)
         P_star = float(np.clip(P_opt, self.cfg.control.P_min,
                                self.cfg.control.P_max))
         return P_star

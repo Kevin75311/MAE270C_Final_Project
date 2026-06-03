@@ -23,29 +23,64 @@ from control.constraints import ConstraintChecker
 
 
 def _result_dict(T_history, Omega_history, u_history,
-                 t_vec, cost_info, constraint_info, cfg):
+                 t_vec, cost_info, constraint_info, cfg, t_f=None):
     return {
         'T_history':     T_history,      # (n+1, N)
         'Omega_history': Omega_history,  # (n+1, N)
         'u_history':     u_history,      # (n,)
         't_vec':         t_vec,          # (n+1,)
+        't_f':           t_f if t_f is not None else float(t_vec[-1]),  # treatment-end time
         'cost':          cost_info,
         'constraints':   constraint_info,
         'cfg':           cfg,
     }
 
 
+# ── Free final time: optimal stopping ─────────────────────────────────────────
+
+def optimal_stop_index(Om_history: np.ndarray,
+                       cfg: SimConfig = default_cfg) -> int:
+    """
+    Free-final-time optimal stopping index.
+
+    This is a free-t_f Bolza problem with a *positive* running cost
+    (α₁P² + α₂·overshoot² + α₃ ≥ α₃ > 0) and a soft min-time term γ₂·t_f.
+    The transversality condition ℋ(t_f) + γ₂ = 0 would require
+    ℋ(t_f) = −γ₂ < 0, but once the tumor is fully ablated λ_T(t_f)=λ_Ω(t_f)=0
+    so ℋ(t_f) = L(t_f) ≥ α₃ > 0 — the interior condition is infeasible.
+    Hence the optimum lies on the boundary where the terminal ablation
+    constraint Ω_d ≥ 1 first becomes active: continuing past that instant only
+    adds positive running cost and γ₂·dt with zero terminal benefit.
+
+    Returns the first step index k at which every tumor voxel satisfies
+    Ω_d ≥ threshold.  If full ablation is never reached, returns the last
+    index (n) so the trajectory is not truncated.
+    """
+    tumor_mask = build_region_masks(cfg)[0].ravel()
+    threshold  = cfg.arrhenius.damage_threshold
+    fully = (Om_history[:, tumor_mask] >= threshold).all(axis=1)  # (n+1,)
+    hits  = np.flatnonzero(fully)
+    return int(hits[0]) if hits.size > 0 else Om_history.shape[0] - 1
+
+
 # ── Shared forward integration ────────────────────────────────────────────────
 
 def forward_simulate(u_schedule,
                      cfg: SimConfig = default_cfg,
-                     verbose: bool = False) -> dict:
+                     verbose: bool = False,
+                     free_final_time: bool = True) -> dict:
     """
     Integrate the state equations forward under a prescribed control schedule.
 
     Parameters
     ----------
     u_schedule : callable  P = u_schedule(t)  or array of shape (n_steps,)
+    free_final_time : if True (default), truncate the trajectory at the
+                      optimal stopping time t_f* = first instant of full tumor
+                      ablation (see optimal_stop_index).  The reported cost and
+                      constraints — including γ₂·t_f — then use t_f*, not the
+                      fixed horizon t_final.  Set False to report the full
+                      fixed-horizon trajectory.
 
     Returns
     -------
@@ -85,12 +120,46 @@ def forward_simulate(u_schedule,
             print(f"  t={t_vec[k+1]:6.1f}s  P={P_k:5.1f}W  "
                   f"T_max_healthy={T_max_h:.1f}°C  tumor_ablated={ablated:.1%}")
 
-    t_f   = cfg.solver.t_final
-    costs = cost_fn.total_cost(T_hist, Om_hist, u_hist, t_f, dt)
-    chk   = ConstraintChecker(cfg)
-    cons  = chk.check_trajectory(T_hist, Om_hist, u_hist, t_f)
+    # ── Free final time: stop at the optimal instant; cost uses t_f* ──────────
+    if free_final_time:
+        k_stop = optimal_stop_index(Om_hist, cfg)
+    else:
+        k_stop = n
 
-    return _result_dict(T_hist, Om_hist, u_hist, t_vec, costs, cons, cfg)
+    T_cost  = T_hist[:k_stop + 1]
+    Om_cost = Om_hist[:k_stop + 1]
+    u_cost  = u_hist[:k_stop]
+    t_f     = float(t_vec[k_stop])
+
+    costs = cost_fn.total_cost(T_cost, Om_cost, u_cost, t_f, dt)
+    chk   = ConstraintChecker(cfg)
+    cons  = chk.check_trajectory(T_cost, Om_cost, u_cost, t_f)
+
+    # ── Post-treatment observation window (applicator OFF, P=0) ───────────────
+    # Continue the cooldown past t_f* for visualization only — the cost above is
+    # unchanged.  Skipped when the tumor never fully ablated (k_stop == n).
+    obs_steps = 0
+    if free_final_time and k_stop < n:
+        obs_steps = int(round(cfg.solver.post_observation_time / dt))
+
+    if obs_steps > 0:
+        T_obs  = np.zeros((obs_steps, N))
+        Om_obs = np.zeros((obs_steps, N))
+        T_c, Om_c = T_hist[k_stop].copy(), Om_hist[k_stop].copy()
+        for j in range(obs_steps):
+            T_n  = bioheat.step(T_c, 0.0, dt)   # applicator off
+            Om_n = damage.step(Om_c, T_c, dt)   # damage keeps accumulating if still hot
+            T_obs[j], Om_obs[j] = T_n, Om_n
+            T_c, Om_c = T_n, Om_n
+        T_ret  = np.vstack([T_cost, T_obs])
+        Om_ret = np.vstack([Om_cost, Om_obs])
+        u_ret  = np.concatenate([u_cost, np.zeros(obs_steps)])
+        t_ret  = np.concatenate([t_vec[:k_stop + 1],
+                                 t_f + dt * np.arange(1, obs_steps + 1)])
+    else:
+        T_ret, Om_ret, u_ret, t_ret = T_cost, Om_cost, u_cost, t_vec[:k_stop + 1]
+
+    return _result_dict(T_ret, Om_ret, u_ret, t_ret, costs, cons, cfg, t_f=t_f)
 
 
 # ── Mode 0: Open-loop (no optimization) ──────────────────────────────────────
@@ -129,9 +198,9 @@ def solve_openloop(cfg: SimConfig = default_cfg,
 
 def solve_indirect(cfg: SimConfig = default_cfg,
                    u_init: np.ndarray = None,
-                   max_iter: int = 200,
-                   tol: float = 1e-3,
-                   relaxation: float = 0.5,
+                   max_iter: int = 300,
+                   tol: float = 1e-2,
+                   relaxation: float = 0.15,
                    verbose: bool = True) -> dict:
     """
     Mode 1 — indirect method: PMP gradient projection via forward-adjoint sweeps.
@@ -147,7 +216,7 @@ def solve_indirect(cfg: SimConfig = default_cfg,
       3. Backward pass  — integrate adjoint λ_T(t) backward in time;
              λ_Ω is constant (its adjoint ODE has zero rhs)
       4. Pontryagin projection  — compute candidate control:
-             ũ(t) = clip( λ_T(t)ᵀ b_P / (2α₁),  0,  P_max )
+             ũ(t) = clip( −λ_T(t)ᵀ b_P / (2α₁),  0,  P_max )
       5. Relaxed update  — u^{k+1} = (1 − β) u^k + β ũ
       6. Convergence check  — stop if  ‖u^{k+1} − u^k‖_∞ < tol
 
@@ -158,6 +227,11 @@ def solve_indirect(cfg: SimConfig = default_cfg,
     tol       : convergence tolerance on max control change [W].
     relaxation: β ∈ (0, 1] — mixing weight for the Pontryagin update.
                 Smaller values stabilize convergence at the cost of more sweeps.
+                The Pontryagin control here is bang-bang (saturates at 0 or
+                P_max), so a large β makes the fixed-point iteration limit-cycle
+                between "under-ablated → full power" and "ablated → zero power".
+                β≈0.15 damps this and converges to full tumor ablation; β=0.5
+                oscillates and stalls at ~42%.
     """
     dt = cfg.solver.dt
     n  = cfg.solver.n_steps
@@ -210,9 +284,13 @@ def solve_indirect(cfg: SimConfig = default_cfg,
             lam_T_hist[k] = lam_T
 
         # ── 4. Pontryagin projection ──────────────────────────────────────
+        # PMP minimizes ℋ = L + λᵀf  ⟹  ∂ℋ/∂P = 2α₁P + λ_Tᵀb_P = 0
+        #   ⟹  P* = −λ_Tᵀb_P / (2α₁).  The leading minus sign is essential:
+        # λ_T is negative in the tumor during heating, so −λ_Tᵀb_P > 0 turns
+        # the applicator ON.  (A previous version omitted it and produced P*≡0.)
         alpha1 = cfg.cost.alpha1
         u_pmp = np.array([
-            float(np.clip(np.dot(lam_T_hist[k], b_P) / (2.0 * alpha1),
+            float(np.clip(-np.dot(lam_T_hist[k], b_P) / (2.0 * alpha1),
                           cfg.control.P_min, cfg.control.P_max))
             for k in range(n)
         ])
@@ -257,29 +335,69 @@ def solve_direct(cfg: SimConfig = default_cfg,
     is O(n_eval · n · N).  Intended as a reference solver; for large grids
     prefer solve_indirect() (adjoint gradients) or direct collocation (CasADi).
 
-    Gradients are approximated by SLSQP via finite differences.  Path
-    constraints (T ≤ T_safe) are soft-penalized via α₂ in the cost; box
+    Gradients are approximated by SLSQP via finite differences.  Box
     constraints on u are enforced through scipy bounds.
+
+    Energy mode (cfg.cost.mode == 'energy', default):
+      Path constraints (T ≤ T_safe) are soft-penalized via α₂ in the cost.
+      No SLSQP inequality constraints are passed.
+
+    Time-optimal mode (cfg.cost.mode == 'time', cfg.solver.enforce_safety_hard == True):
+      α₁ is reduced to a tiny regularization (alpha1_time) and α₂ is zeroed,
+      so the cost is almost purely γ₂·t_f + γ₁·ablation + α₃·t.  T ≤ T_safe in
+      healthy tissue is promoted to a hard SLSQP inequality constraint so that
+      nothing else limits power.
+      The objective and the safety-margin constraint share a per-call memoized
+      forward rollout (keyed on u_vec.tobytes()) so the PDE is integrated only
+      ONCE per SLSQP function evaluation, not twice.
     """
     dt = cfg.solver.dt
     n  = cfg.solver.n_steps
     N  = cfg.domain.N
 
-    sar     = compute_sar_field(cfg=cfg)
-    bioheat = BioHeatSolver(cfg=cfg, sar_field=sar)
-    damage  = ArrheniusDamage(cfg=cfg)
-    cost_fn = CostFunctional(cfg=cfg)
+    sar        = compute_sar_field(cfg=cfg)
+    bioheat    = BioHeatSolver(cfg=cfg, sar_field=sar)
+    damage     = ArrheniusDamage(cfg=cfg)
+    cost_fn    = CostFunctional(cfg=cfg)
+    checker    = ConstraintChecker(cfg=cfg)
+    healthy_mask = checker.healthy_mask
 
     if u_init is None:
-        u_init = np.full(n, cfg.control.P_max * 0.5)
+        # Time-optimal mode: the early-stop makes t_f a staircase function of u
+        # (≈zero finite-difference gradient), so SLSQP cannot descend the min-time
+        # objective and largely returns the warm start.  Minimum time wants maximum
+        # power, so start at full power — this lands in the minimum-time region
+        # instead of falsely "converging" at a slow interior guess.  Energy mode
+        # keeps the neutral half-power start.
+        u_init = (np.full(n, cfg.control.P_max) if cfg.cost.mode == 'time'
+                  else np.full(n, cfg.control.P_max * 0.5))
 
-    call_count = [0]
+    call_count  = [0]
+    tumor_mask  = cost_fn.tumor_mask
+    threshold   = cfg.arrhenius.damage_threshold
 
-    def objective(u_vec):
+    # ── Memoized single forward integration ──────────────────────────────────
+    # Cache stores only two scalars per key so memory stays bounded.
+    # Created fresh each solve_direct() call (no cross-call leakage).
+    _cache: dict = {}   # bytes → (J_value: float, safety_margin: float)
+
+    def _evaluate(u_vec: np.ndarray):
+        """
+        Run the forward PDE once and return (J, safety_margin).
+
+        The safety_margin is computed incrementally (one scalar updated each
+        step) alongside J so no large arrays need to be stored in the cache.
+        """
+        key = u_vec.tobytes()
+        if key in _cache:
+            return _cache[key]
+
         call_count[0] += 1
         T     = bioheat.initialize()
         Omega = damage.initialize()
         J_run = 0.0
+        # Track worst healthy-tissue temperature seen over all simulated steps.
+        max_healthy_T = float('-inf')
 
         for k in range(n):
             P_k    = float(np.clip(u_vec[k], cfg.control.P_min, cfg.control.P_max))
@@ -287,20 +405,56 @@ def solve_direct(cfg: SimConfig = default_cfg,
             T      = bioheat.step(T, P_k, dt)
             Omega  = damage.step(Omega, T, dt)
 
-        J_term = cost_fn.terminal_cost(Omega, cfg.solver.t_final)
-        return J_run + J_term
+            # Track worst healthy temperature using the POST-step state so the
+            # final/stop-instant temperature is included in the safety margin.
+            # (Sampling before the step would omit the hottest, last timestep —
+            # the SLSQP constraint would then be leaky by one dt.)
+            T_h_max = float(T[healthy_mask].max()) if healthy_mask.any() else float('-inf')
+            if T_h_max > max_healthy_T:
+                max_healthy_T = T_h_max
+
+            # Free final time: once the tumor is fully ablated, stop the clock.
+            # Running longer only adds positive running cost + γ₂·dt, so this
+            # rewards controls that ablate sooner (the optimizer minimizes t_f).
+            if (Omega[tumor_mask] >= threshold).all():
+                J_val    = J_run + cost_fn.terminal_cost(Omega, (k + 1) * dt)
+                s_margin = cfg.control.T_safe - max_healthy_T
+                _cache[key] = (J_val, s_margin)
+                return _cache[key]
+
+        J_val    = J_run + cost_fn.terminal_cost(Omega, cfg.solver.t_final)
+        s_margin = cfg.control.T_safe - max_healthy_T
+        _cache[key] = (J_val, s_margin)
+        return _cache[key]
+
+    def objective(u_vec: np.ndarray) -> float:
+        J_val, _ = _evaluate(u_vec)
+        return J_val
 
     bounds = [(cfg.control.P_min, cfg.control.P_max)] * n
 
+    # ── Hard safety constraint (time-optimal mode only) ───────────────────────
+    if cfg.solver.enforce_safety_hard:
+        # SLSQP 'ineq' constraint: fun(u) >= 0 means feasible.
+        # Returns T_safe − max_{t, r ∈ Ω_H} T(r,t); negative → violated.
+        nlp_constraints = [{'type': 'ineq',
+                             'fun':  lambda u: _evaluate(u)[1]}]
+    else:
+        nlp_constraints = ()   # energy mode: no hard constraints (current behaviour)
+
     if verbose:
+        mode_label = cfg.cost.mode
+        hard_label = ' + hard T_safe constraint' if cfg.solver.enforce_safety_hard else ''
         print(f"Starting direct (single-shooting) solver  "
-              f"(n={n} variables,  method={cfg.solver.optimizer}) ...")
+              f"(n={n} variables,  method={cfg.solver.optimizer},  "
+              f"objective={mode_label}{hard_label}) ...")
 
     result = minimize(
         objective,
         u_init,
         method=cfg.solver.optimizer,
         bounds=bounds,
+        constraints=nlp_constraints,
         options={'maxiter': cfg.solver.max_iter,
                  'ftol':    cfg.solver.tol,
                  'disp':    verbose},

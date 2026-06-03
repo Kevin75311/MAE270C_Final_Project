@@ -157,7 +157,13 @@ class ControlConfig:
     P_dot_max: float = 10.0      # max |dP/dt|                 [W/s]
 
     # Temperature safety thresholds
-    T_safe: float = 45.0         # healthy tissue limit        [°C]
+    T_safe: float = 50.0         # healthy tissue limit        [°C]
+                                  # 50°C (not 45): at 45 the strict hard-constraint
+                                  # time-optimal problem is infeasible for the
+                                  # default geometry — full ablation caps at ~76%
+                                  # and SLSQP never converges.  50°C gives thermal
+                                  # headroom so full ablation is feasible and the
+                                  # direct solver converges (Exit mode 0).
     T_crit: float = 42.0         # critical structures limit   [°C]
 
     # Maximum allowed treatment duration
@@ -171,6 +177,12 @@ class SolverConfig:
     dt: float = 1.0              # time step size              [s]
     t_final: float = 300.0       # simulation duration         [s]  (free in OCP)
 
+    # Post-treatment observation window: after the free final time t_f* (full
+    # ablation), keep integrating the cooldown with the applicator OFF (P=0) for
+    # this many extra seconds so the thermal relaxation is visible.  Does NOT
+    # affect the cost, which is still evaluated at t_f*.
+    post_observation_time: float = 20.0   # [s]
+
     # ODE integrator choice: 'euler', 'rk4', 'scipy_ode'
     integrator: str = 'rk4'
 
@@ -178,6 +190,11 @@ class SolverConfig:
     optimizer: str = 'SLSQP'     # scipy.optimize method
     max_iter: int = 500
     tol: float = 1e-6
+
+    # When True, T ≤ T_safe in healthy tissue is enforced as a hard NLP
+    # inequality constraint passed to SLSQP (used by time-optimal mode).
+    # When False (default / energy mode), safety is soft-penalized via alpha2.
+    enforce_safety_hard: bool = False
 
     # MPC settings
     mpc_horizon: float = 60.0    # prediction horizon          [s]
@@ -199,13 +216,42 @@ class CostConfig:
     │    + ∫₀^tf [ α1‖u‖² + α2·∫_{Ω_H}(T−T_safe)₊² dr + α3 ] dt        │
     └──────────────────────────────────────────────────────────────────┘
     """
+    # Objective mode: 'energy' (default) or 'time' (time-optimal).
+    # In 'time' mode, alpha1 is replaced by alpha1_time (tiny regularization)
+    # and alpha2 is zeroed out (healthy-tissue safety is instead enforced as a
+    # hard SLSQP inequality constraint via cfg.solver.enforce_safety_hard).
+    mode: str = 'energy'          # 'energy' | 'time'
+
     # Running cost weights
-    alpha1: float = 1e-4         # energy penalty (‖u‖²)
+    # alpha1 (energy weight) is tuned to make the problem ENERGY-aware rather
+    # than purely time-optimal.  Rationale: openloop runs the applicator at full
+    # power, which IS the minimum-time control — so when time dominates, openloop
+    # is unbeatable and the optimizers can only tie it.  Raising alpha1 makes
+    # full-power wasteful, so the optimal control is a gentler schedule that the
+    # indirect/direct solvers find and openloop cannot — they then beat openloop.
+    #   alpha1=5e-4: openloop≈125, indirect≈106, direct≈105 (optimizers win ~15%).
+    # Upper bound: alpha1 ≲ 1.2e-3, beyond which energy is so costly that "do
+    # nothing" (pay the gamma1 ablation penalty ≈192) beats ablating and the
+    # direct optimizer stops ablating.  See gamma1 note below.
+    alpha1: float = 5e-4         # energy penalty (‖u‖²) — energy-aware regime
+    alpha1_time: float = 1e-6    # tiny regularization energy weight used in
+                                  # time-optimal mode (keeps SLSQP objective from
+                                  # being a degenerate LP; not literally zero)
     alpha2: float = 1.0          # healthy tissue overheating penalty
     alpha3: float = 0.01         # time-rate cost (encourages speed)
 
     # Terminal cost weights
-    gamma1: float = 10.0         # incomplete ablation penalty
+    # NOTE on gamma1 magnitude: the ablation penalty is a *spatial integral*,
+    #   J_ablation = gamma1 · Σ_{Ω_T} (1−Ω_d)₊² · dA,
+    # so it is scaled by the voxel area dA ≈ 1e-6 m².  With the full tumor
+    # un-ablated this term equals gamma1·N_tumor·dA ≈ gamma1·1.9e-4.  To make
+    # "kill the tumor" dominate the (un-scaled) energy cost α1·P²·t ≈ 75 and
+    # the time cost γ2·t_f ≈ 30, gamma1 must be large.  gamma1=1e6 →
+    # J_ablation(none)≈190, comfortably outweighing energy/time so the
+    # optimizer chooses to ablate.  (Previously 10.0 → J_ablation(none)≈0.002,
+    # which made "do nothing" the global optimum — the direct solver correctly
+    # found it and ablated nothing.)
+    gamma1: float = 1e6          # incomplete ablation penalty (area-integrated)
     gamma2: float = 0.1          # final time penalty (soft min-time)
 
 

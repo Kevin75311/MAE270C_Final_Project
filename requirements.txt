@@ -3,3 +3,4 @@ scipy>=1.10
 matplotlib>=3.7
 pyvista>=0.43       # 3D COMSOL-like rendering (optional but recommended)
 pillow>=10.0        # GIF animation output
+pyyaml>=6.0         # config serialization

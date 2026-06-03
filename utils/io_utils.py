@@ -5,6 +5,8 @@ utils/io_utils.py — Save and load simulation results.
 import os
 import numpy as np
 import json
+import yaml
+from dataclasses import asdict
 from datetime import datetime
 from config import SimConfig, cfg as default_cfg
 
@@ -56,3 +58,29 @@ def load_trajectory(npz_path: str) -> dict:
         'u_history':     data['u_history'],
         't_vec':         data['t_vec'],
     }
+
+
+def save_config(cfg: SimConfig, out_dir: str):
+    """
+    Serialize the full SimConfig to config.yaml inside out_dir.
+
+    Computed properties (dx, dy, dz, N) are added under a '_computed' key
+    so they appear alongside the editable fields for easy comparison.
+    """
+    data = asdict(cfg)
+
+    # Attach computed/derived quantities that don't live in the dataclass fields
+    data['_computed'] = {
+        'dx_mm':  round(cfg.domain.dx * 1e3, 4),
+        'dy_mm':  round(cfg.domain.dy * 1e3, 4),
+        'dz_mm':  round(cfg.domain.dz * 1e3, 4),
+        'N_voxels': cfg.domain.N,
+        'n_steps': cfg.solver.n_steps,
+    }
+
+    yaml_path = os.path.join(out_dir, 'config.yaml')
+    with open(yaml_path, 'w') as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+    print(f"Saved: {yaml_path}")
+    return yaml_path
