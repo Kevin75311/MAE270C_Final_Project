@@ -11,3 +11,26 @@ __pycache__/
 # Test/cache and run logs
 .pytest_cache/
 /logs/
+
+# LaTeX build artifacts (keep main.tex, main.pdf, and sources)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.glg
+*.glg-abr
+*.glo
+*.glo-abr
+*.gls
+*.gls-abr
+*.ist
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.synctex.gz
+*.symbols-glg
+*.symbols-glo
+*.symbols-gls
