@@ -13,14 +13,15 @@ conda install -c conda-forge numpy scipy matplotlib pillow -y
 pip install pyvista
 \end{verbatim}
 
-Run each solver mode:
+Run each solver mode, optionally selecting dimensionality and probe:
 \begin{verbatim}
-python main.py --mode openloop              # bang-bang baseline
-python main.py --mode indirect              # PMP gradient projection
-python main.py --mode direct               # direct single-shooting NLP
-python main.py --mode mpc                  # receding-horizon MPC
-python main.py --mode openloop --bc robin  # convective BC
-python main.py --mode openloop --animate   # generate GIF
+python main.py --mode openloop                  # bang-bang baseline
+python main.py --mode indirect                  # PMP gradient projection
+python main.py --mode direct                    # direct single-shooting NLP
+python main.py --mode indirect --ndim 3         # 3-D volume
+python main.py --mode openloop --probe dipole   # dipole SAR geometry
+python main.py --mode openloop --bc robin       # convective BC
+python main.py --mode openloop --animate        # generate GIF
 \end{verbatim}
 
 Results are written to \texttt{results/}.
@@ -42,19 +43,20 @@ Table~\ref{tab:config-ref}.
 Config field & Symbol & Default & Units \\
 \midrule
 \texttt{DomainConfig.Lx/Ly}           & $L_x, L_y$      & 0.05, 0.05  & m \\
-\texttt{DomainConfig.Nx/Ny}           & $N_x, N_y$      & 50, 50      & --- \\
+\texttt{DomainConfig.Nx/Ny/Nz}        & $N_x, N_y, N_z$ & 50, 50, 50  & --- \\
 \texttt{DomainConfig.tumor\_radius}   & $r_T$           & 0.008       & m \\
 \texttt{TissueConfig.k}               & $k$             & 0.51        & \si{\watt\per\meter\per\kelvin} \\
 \texttt{TissueConfig.omega\_b}        & $\omega_b$      & 0.005       & \si{\per\second} \\
 \texttt{ControlConfig.P\_max}         & $P_{\max}$      & 50.0        & W \\
-\texttt{ControlConfig.T\_safe}        & $T_{\text{safe}}$ & 45.0      & \si{\degreeCelsius} \\
+\texttt{ControlConfig.T\_safe}        & $T_{\text{safe}}$ & 50.0      & \si{\degreeCelsius} \\
 \texttt{SolverConfig.dt}              & $\Delta t$      & 1.0         & s \\
 \texttt{SolverConfig.t\_final}        & $t_f$           & 300.0       & s \\
 \texttt{BoundaryConfig.bc\_type}      & ---             & dirichlet   & --- \\
 \texttt{BoundaryConfig.h\_c}          & $h_c$           & 50.0        & \si{\watt\per\square\meter\per\kelvin} \\
 \texttt{BoundaryConfig.T\_inf}        & $T_\infty$      & 20.0        & \si{\degreeCelsius} \\
-\texttt{CostConfig.alpha1}            & $\alpha_1$      & $10^{-4}$   & --- \\
-\texttt{CostConfig.gamma1}            & $\gamma_1$      & 10.0        & --- \\
+\texttt{CostConfig.alpha1}            & $\alpha_1$      & $5\times10^{-4}$ & --- \\
+\texttt{CostConfig.gamma1}            & $\gamma_1$      & $10^{6}$    & --- \\
+\texttt{CostConfig.gamma2}            & $\gamma_2$      & 0.1         & --- \\
 \bottomrule
 \end{tabular}
 \end{table}

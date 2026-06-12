@@ -6,45 +6,106 @@
 %----------------------------------------------------------------------
 \section{Summary}
 
-This project developed a modular, 2-D PDE-constrained optimal control
-simulation for MRI-guided microwave thermal ablation.
+This project developed a modular PDE-constrained optimal control
+simulation for MRI-guided microwave thermal ablation, supporting both
+2-D slices and full 3-D volumes.
 The Pennes bioheat equation and Arrhenius damage ODE are discretized
 by finite differences and integrated with a shared forward simulator
-used by all four solver backends (open-loop, indirect PMP, direct NLP,
-and receding-horizon MPC).
+used by all three solver backends (open-loop, indirect PMP, direct NLP),
+under a free-final-time formulation that truncates each trajectory at the
+optimal stopping instant $t_f^\star$.
+A full sweep of $3$ solvers $\times\,2$ dimensions $\times\,3$ probe
+geometries (Chapter~\ref{ch:results}) benchmarks the methods under
+matched Dirichlet boundary conditions and cost weights.
 
 The indirect solver derives costate equations analytically from the
 Pontryagin Maximum Principle and updates the control schedule via
-forward-adjoint sweep iteration.
+forward-adjoint sweep iteration; it scales to 3-D in under an hour.
 The direct solver delegates optimization to \texttt{scipy.optimize}
-and trades speed for implementation simplicity.
-The MPC solver demonstrates closed-loop robustness to simulated MRI
-thermometry noise.
+and trades speed for implementation simplicity, but does not scale to the
+full 3-D grid.
+
+%----------------------------------------------------------------------
+\section{On the Difficulty of Tuning the Cost Weights}
+\label{sec:gain-tuning}
+
+The single most time-consuming part of this project was tuning the five
+cost weights $(\alpha_1, \alpha_2, \alpha_3, \gamma_1, \gamma_2)$. Several
+structural reasons make this hard.
+
+\paragraph{Competing objectives with no common scale.}
+The weights trade off four physically incommensurable quantities ---
+ablation completeness, deposited energy, treatment time, and healthy-tissue
+overheating --- each with different units and magnitudes. There is no
+natural normalization, so the weights must be hand-balanced until each term
+contributes a comparable amount to $J$; a change in one weight silently
+shifts the operating point of all the others.
+
+\paragraph{The ablation penalty is dimension-dependent.}
+The incomplete-ablation term is a \emph{spatial integral},
+$\gamma_1 \int_{\Omega_T}(1-\Omega_d)_+^2\,d\mathbf{r} \approx \gamma_1 N_T\,dV$,
+so its value scales with the voxel measure $dV$. The weight
+$\gamma_1 = 10^6$ was chosen so this term is $\approx 190$ for the 2-D area
+element $dA \approx \SI{e-6}{\square\meter}$ --- large enough to dominate
+the $O(10^1$--$10^2)$ energy and time costs and force the optimizer to
+ablate. In 3-D the volume element collapses to
+$dV = (\SI{2.5}{\mm})^3 \approx \SI{1.6e-8}{\cubic\meter}$, shrinking the
+un-ablated penalty to $\gamma_1 N_T\,dV \approx 2.1$ --- now far smaller
+than the $\sim\!200$ of energy required to ablate the volume. Doing nothing
+then costs only $J \approx \gamma_2 t_f + \alpha_3 t_f + 2.1 \approx 35$ and
+becomes the global optimum: this is exactly why the converged $20^3$ direct
+runs in Chapter~\ref{ch:results} ablate \emph{nothing}. The same weight set
+is correct in 2-D and degenerate in 3-D, so $\gamma_1$ must be re-scaled by
+$dA/dV \approx 60\times$ when the dimensionality (or grid resolution)
+changes.
+
+\paragraph{A narrow feasible window.}
+Even within a fixed dimension the usable range is narrow. The energy weight
+$\alpha_1$ must be small enough that the optimizer is still willing to spend
+power, yet large enough to separate the optimizers from the full-power
+open-loop baseline; empirically the ablating optimum survives only for
+$\alpha_1 \lesssim 1.2\times10^{-3}$, beyond which ``do nothing'' again
+wins. The optimizers thus live on a knife-edge between two trivial
+solutions (full power and zero power).
+
+\paragraph{Near bang-bang control amplifies sensitivity.}
+Because the Pontryagin control law is close to bang-bang, small weight
+changes can flip an entire stretch of the schedule between $P_{\max}$ and
+$0$. This is also why the indirect solver needs a heavily damped relaxation
+($\beta = 0.15$): a larger step makes the fixed-point iteration limit-cycle
+between ``under-ablated $\to$ full power'' and ``ablated $\to$ off.'' Weight
+tuning and solver stability are therefore coupled, not independent.
 
 %----------------------------------------------------------------------
 \section{Remaining Challenges}
 
 \begin{enumerate}
-    \item \textbf{MPC inner optimizer:}
-        The current \texttt{\_mpc\_horizon\_optimize} uses a bang-off-bang
-        heuristic rather than a true OCP solver.
-        Replacing it with \texttt{solve\_direct()} or \texttt{solve\_indirect()}
-        on the prediction window would yield a proper MPC.
-
     \item \textbf{Indirect convergence:}
         The gradient projection algorithm is not globally convergent;
         the relaxation parameter $\beta$ requires manual tuning.
         Line-search or conjugate-gradient extensions would improve robustness.
 
-    \item \textbf{Free final time:}
-        $t_f$ is currently fixed at \SI{300}{\second}.
-        Extending to a true free-final-time formulation requires an
-        additional transversality condition and a variable horizon.
+    \item \textbf{Soft safety constraint:}
+        $T \leq T_{\text{safe}}$ in healthy tissue is enforced as a soft
+        $\alpha_2$ penalty, so the optimizer is permitted to exceed it
+        when the ablation reward dominates. Chapter~\ref{ch:results} shows
+        this is exactly what happens for the 3-D line and dipole sources,
+        which overheat healthy tissue. Promoting the limit to a hard path
+        constraint (as the time-optimal direct mode already does) would
+        close this gap.
 
-    \item \textbf{3-D domain:}
-        Clinical ablation is three-dimensional.
-        The FD grid scales as $O(N^{3/2})$ in 3-D; a multigrid or
-        spectral preconditioner would be needed.
+    \item \textbf{Direct single-shooting in 3-D:}
+        Dense single-shooting re-integrates the full $50^3$-voxel PDE per
+        finite-difference gradient and did not converge within nine hours
+        for the 3-D runs; it converges only after the grid is coarsened to
+        $20^3$. Direct \emph{collocation} (sparse NLP via IPOPT/CasADi) or
+        the adjoint method --- which scaled to 3-D in under an hour --- is
+        required at full resolution.
+
+    \item \textbf{Cost-weight calibration:}
+        As detailed in Section~\ref{sec:gain-tuning}, the weights are
+        sensitive and dimension-dependent; in particular $\gamma_1$ must be
+        re-scaled by the voxel volume when moving from 2-D to 3-D.
 \end{enumerate}
 
 %----------------------------------------------------------------------
@@ -53,6 +114,17 @@ thermometry noise.
 \begin{itemize}
     \item Replace single-shooting direct method with direct collocation
           (e.g., CasADi/IPOPT) for better scalability.
+    \item \textbf{Receding-horizon MPC.} Close the loop by re-solving the
+          OCP over a short prediction horizon at each control step, using
+          the live MRI thermometry field as the initial condition. This
+          naturally handles model error and measurement feedback and is the
+          essential ingredient for real-time MRI-guided control.
+    \item \textbf{Reinforcement learning.} Train a policy (e.g.\
+          actor--critic or policy-gradient) on the discretized
+          bioheat--damage Markov decision process, learning a power schedule
+          directly from
+          simulated rollouts. This avoids analytical gradients and is suited
+          to handling imaging noise and patient-to-patient variability.
     \item Incorporate real MRI thermometry data (proton resonance
           frequency shift maps) as the feedback signal.
     \item Extend to heterogeneous tissue properties and patient-specific
@@ -60,17 +132,6 @@ thermometry noise.
     \item Implement safety-critical control (control barrier functions)
           to enforce the healthy-tissue temperature constraint as a
           hard constraint rather than a soft penalty.
+    \item Re-scale the terminal ablation weight $\gamma_1$ by voxel volume
+          so the cost functional is dimensionally consistent in 3-D.
 \end{itemize}
-
-%----------------------------------------------------------------------
-\section{Expected Contributions}
-
-\begin{enumerate}
-    \item Validated 2-D finite-difference bioheat + damage simulator
-          with four interchangeable solver backends.
-    \item Adjoint solver verified against finite-difference gradient checks.
-    \item Quantitative comparison of open-loop, indirect, direct, and
-          MPC strategies under matched conditions.
-    \item Configurable boundary conditions (Dirichlet / Neumann / Robin)
-          exposed as a command-line argument.
-\end{enumerate}

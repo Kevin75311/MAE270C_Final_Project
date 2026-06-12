@@ -233,7 +233,11 @@ class CostConfig:
     # Upper bound: alpha1 ≲ 1.2e-3, beyond which energy is so costly that "do
     # nothing" (pay the gamma1 ablation penalty ≈192) beats ablating and the
     # direct optimizer stops ablating.  See gamma1 note below.
-    alpha1: float = 5e-4         # energy penalty (‖u‖²) — energy-aware regime
+    # AGGRESSIVE SET (active): alpha1=2e-4, gamma1=2e6, gamma2=0.3.  Lower energy
+    # weight → more willing to use power; higher gamma1 → ablation dominates
+    # harder; higher gamma2 → stronger min-time push.  Default/known-good set was
+    # alpha1=5e-4, gamma1=1e6, gamma2=0.1.
+    alpha1: float = 5e-4         # energy penalty (‖u‖²) — aggressive set (was 5e-4)
     alpha1_time: float = 1e-6    # tiny regularization energy weight used in
                                   # time-optimal mode (keeps SLSQP objective from
                                   # being a degenerate LP; not literally zero)
@@ -251,8 +255,8 @@ class CostConfig:
     # optimizer chooses to ablate.  (Previously 10.0 → J_ablation(none)≈0.002,
     # which made "do nothing" the global optimum — the direct solver correctly
     # found it and ablated nothing.)
-    gamma1: float = 1e6          # incomplete ablation penalty (area-integrated)
-    gamma2: float = 0.1          # final time penalty (soft min-time)
+    gamma1: float = 1e6          # incomplete ablation penalty (area-integrated) — aggressive set (was 1e6)
+    gamma2: float = 0.1          # final time penalty (soft min-time) — aggressive set (was 0.1)
 
 
 @dataclass

@@ -63,8 +63,11 @@ A forward-adjoint sweep algorithm iterates:
           \[P^{(k+1)} = (1-\beta)\,P^{(k)} + \beta\,P^*\]
     \item Repeat until $\|P^{(k+1)} - P^{(k)}\|_\infty < \varepsilon$.
 \end{enumerate}
-Convergence is sensitive to $\beta$ (default 0.5);
-oscillation indicates $\beta$ should be reduced.
+Convergence is sensitive to $\beta$ (default 0.15).
+Because the Pontryagin control is near bang-bang, a large $\beta$ makes
+the fixed-point iteration limit-cycle between ``under-ablated\,$\to$\,full
+power'' and ``ablated\,$\to$\,off''; $\beta \approx 0.15$ damps this.
+Oscillation indicates $\beta$ should be reduced further.
 
 \subsection{Mode 2 — Direct Single-Shooting NLP}
 
@@ -74,19 +77,9 @@ The objective calls \texttt{forward\_simulate()} at every function evaluation,
 making this mode computationally expensive but straightforward to implement.
 Box constraints $P_{\min} \leq u_k \leq P_{\max}$ are enforced via
 \texttt{scipy} bounds.
-
-\subsection{Mode 3 — Receding-Horizon MPC}
-
-At each control update interval $\Delta t_{\text{ctrl}}$, a short-horizon
-optimization is solved using the current (possibly noisy) MRI temperature
-measurement as the initial condition.
-A bang-off-bang heuristic is used for the inner optimizer in the current
-implementation; this can be replaced by \texttt{solve\_direct()} or
-\texttt{solve\_indirect()} on the horizon window for a true MPC.
-
-MRI measurement noise is modeled as additive Gaussian:
-$\hat{T} = T_{\text{true}} + \mathcal{N}(0,\, \sigma_{\text{MRI}}^2)$
-with $\sigma_{\text{MRI}} = \SI{0.5}{\degreeCelsius}$.
+Because \gls{slsqp} approximates the gradient by finite differences
+($\approx n+1$ forward PDE rollouts per gradient), this mode does not
+scale to the $50^3$-voxel 3-D grid (Chapter~\ref{ch:results}).
 
 %----------------------------------------------------------------------
 \section{Constraint Checking}
@@ -124,7 +117,7 @@ Physics  & \texttt{physics/boundary\_conditions.py} & Dirichlet/Neumann/Robin \\
 Control  & \texttt{control/ocp.py}               & Bolza cost $J$ \\
 Control  & \texttt{control/adjoint.py}           & Costate ODEs, $P^*(t)$ \\
 Control  & \texttt{control/constraints.py}       & Constraint verification \\
-Control  & \texttt{control/solver.py}            & Four solver backends \\
+Control  & \texttt{control/solver.py}            & Three solver backends \\
 Utils    & \texttt{utils/validators.py}          & CFL check \\
 Utils    & \texttt{utils/io\_utils.py}           & Result serialization \\
 \bottomrule

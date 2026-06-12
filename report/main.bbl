@@ -1,4 +1,15 @@
-\begin{thebibliography}{1}
+\begin{thebibliography}{10}
+
+\bibitem{bett2022model}
+S.~Bett et~al.
+\newblock Model predictive control for mri-guided thermal ablation.
+\newblock {\em IEEE Transactions on Biomedical Engineering}, 2022.
+
+\bibitem{biegler2010nonlinear}
+Lorenz~T Biegler.
+\newblock {\em Nonlinear Programming: Concepts, Algorithms, and Applications to
+  Chemical Processes}.
+\newblock Society for Industrial and Applied Mathematics (SIAM), 2010.
 
 \bibitem{diederich2005thermal}
 Chris~J Diederich.
@@ -25,6 +36,23 @@ Shaoping Huang, Chuqian Lou, Ying Zhou, Zhao He, Xuejun Jin, Yuan Feng, Anzhu
 \newblock Mri-guided robot intervention—current state-of-the-art and new
   challenges.
 \newblock {\em Med-X}, 1(1):4, 2023.
+
+\bibitem{kirk1970optimal}
+Donald~E Kirk.
+\newblock {\em Optimal Control Theory: An Introduction}.
+\newblock Dover Publications, 1970.
+
+\bibitem{liberzon2012calculus}
+Daniel Liberzon.
+\newblock {\em Calculus of Variations and Optimal Control Theory: A Concise
+  Introduction}.
+\newblock Princeton University Press, 2012.
+
+\bibitem{moritz1947studies}
+Alan~R Moritz and FC~Henriques~Jr.
+\newblock Studies of thermal injury: Ii. the relative importance of time and
+  surface temperature in the causation of cutaneous burns.
+\newblock {\em The American Journal of Pathology}, 23(5):695--720, 1947.
 
 \bibitem{pennes1948analysis}
 Harry~H Pennes.

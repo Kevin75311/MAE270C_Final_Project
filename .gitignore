@@ -7,3 +7,7 @@ __pycache__/
 /results/*
 !/results/.gitkeep
 !/results/tests/
+
+# Test/cache and run logs
+.pytest_cache/
+/logs/

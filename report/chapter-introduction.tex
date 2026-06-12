@@ -5,18 +5,26 @@
 %----------------------------------------------------------------------
 \section{Motivation}
 
+% insert robot.png
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1.0\textwidth]{figures/robot.png}
+    \caption{MRI-guided microwave thermal ablation system.}
+    \label{fig:robot}
+\end{figure}
+
 Liver cancer is among the leading causes of cancer-related mortality
-worldwide~\cite{}.
+worldwide.
 Minimally invasive thermal ablation—delivering focused energy to destroy
 tumor tissue without open surgery—is a standard treatment for unresectable
-hepatocellular carcinoma.
+hepatocellular carcinoma~\cite{diederich2005thermal}.
 Microwave ablation (MWA) deposits energy through dielectric heating and
 produces predictable, roughly ellipsoidal ablation zones on the order of
 \SIrange{2}{4}{\cm} in diameter.
 
 \gls{mri} guidance is attractive because it provides superior soft-tissue
 contrast, three-dimensional volumetric imaging, and real-time temperature
-mapping via \emph{MR thermometry} (proton resonance frequency shift).
+mapping via \emph{MR thermometry} (proton resonance frequency shift)~\cite{huang2023mri}.
 This combination—MWA plus MRI thermometry—creates a closed-loop opportunity:
 the power schedule can be updated in real time based on measured temperature,
 enabling precise ablation of the tumor while sparing healthy tissue.
@@ -40,35 +48,43 @@ state and control constraints, and a Bolza cost structure.
 \section{Related Work}
 
 Bioheat equation-based treatment planning dates to the work of
-Pennes~\cite{} and the thermal dose formulation of
-Sapareto and Dewey~\cite{}.
-More recently, model-based optimal control approaches have been applied
-to radiofrequency ablation~\cite{} and laser interstitial therapy~\cite{}.
-Adjoint-based gradient methods for PDE-constrained control are surveyed
-in~\cite{}.
-MPC for thermal ablation using real-time MRI feedback was explored
-in~\cite{}.
+Pennes~\cite{pennes1948analysis}, while the Arrhenius thermal-damage
+model used to quantify irreversible necrosis follows
+Henriques and Moritz~\cite{moritz1947studies}.
+Model-based optimal control approaches have since been applied to
+radiofrequency and microwave ablation~\cite{diederich2005thermal} and to
+laser interstitial therapy~\cite{feng2011model}, and adjoint-based
+gradient methods for \gls{pde}-constrained control are treated
+in~\cite{troltzsch2010optimal}.
+The optimal-control formulation in this report follows the classical
+treatment of the Pontryagin maximum principle and direct
+transcription~\cite{pontryagin2018mathematical, kirk1970optimal,
+liberzon2012calculus, biegler2010nonlinear}.
 The present work integrates these threads into a unified simulation
-framework with four solver modes (open-loop, indirect PMP, direct NLP, MPC)
-and benchmarks them under matched conditions.
+framework with three solver modes (open-loop, indirect PMP, direct NLP)
+and benchmarks them under matched conditions across dimensionality and
+probe geometry.
 
 %----------------------------------------------------------------------
 \section{Contributions}
 
 The main contributions of this project are:
 \begin{enumerate}
-    \item A 2-D finite-difference simulator of the Pennes bioheat PDE
-          and Arrhenius damage ODE, parameterized by a single configuration
-          object with no magic numbers.
+    \item A 2-D and 3-D finite-difference simulator of the Pennes bioheat
+          PDE and Arrhenius damage ODE, with a free-final-time formulation,
+          parameterized by a single configuration object with no magic
+          numbers.
     \item An adjoint (costate) solver derived from the \gls{pmp} and
           verified against finite-difference gradient checks.
-    \item Four interchangeable solver backends—open-loop, indirect gradient
-          projection, direct single-shooting NLP, and receding-horizon
-          \gls{mpc}—sharing a common result interface.
+    \item Three interchangeable solver backends—open-loop, indirect
+          gradient projection, and direct single-shooting NLP—sharing a
+          common result interface.
     \item Configurable boundary conditions (Dirichlet / Neumann / Robin)
           selectable at the command line.
-    \item Quantitative comparison of the four solvers on a standard
-          5~cm $\times$ 5~cm phantom with an 8~mm tumor.
+    \item A quantitative $4 \times 2 \times 3$ sweep (solver $\times$
+          dimension $\times$ probe geometry) on a standard
+          5~cm $\times$ 5~cm phantom with an 8~mm tumor, identifying when
+          each solver and SAR geometry succeeds or fails.
 \end{enumerate}
 
 %----------------------------------------------------------------------

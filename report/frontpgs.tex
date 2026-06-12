@@ -12,13 +12,12 @@
     \vspace{3.0cm}
 
     \Large
-    {\bf PDE-Constrained Optimal Control of \\ MRI-Guided Microwave Thermal Ablation}
+    {\bf Optimal Control of \\ MRI-Guided Microwave Thermal Ablation} \\
 
     \vspace{4.0cm}
 
     \normalsize
-    A project report submitted in partial fulfillment \\
-    of the requirements for MAE 270C — Optimal Control
+    MAE 270C — Optimal Control Final Project Report \\
 
     \vspace{2.5cm}
 
@@ -28,7 +27,7 @@
 
     \vspace{2.0cm}
 
-    Advisor: Professor Tsu-Chin Tsao \\
+    Advisor: Professor Shahriar Talebi \\
     \vspace{0.5cm}
     2026
     \end{center}
@@ -55,15 +54,16 @@ complete tumor ablation (Arrhenius damage $\Omega_d \geq 1$ in $\Omega_T$)
 is penalized at the terminal time, while healthy-tissue overheating,
 total energy, and treatment duration are penalized in the running cost.
 
-Four solution strategies are implemented and compared:
+Three solution strategies are implemented and compared:
 (i)~open-loop bang-bang simulation,
-(ii)~indirect Pontryagin-based gradient projection (forward-adjoint sweeps),
-(iii)~direct single-shooting nonlinear programming via \texttt{scipy} SLSQP, and
-(iv)~receding-horizon model predictive control (MPC).
-Dirichlet, Neumann, and Robin boundary conditions are supported and selectable at runtime.
-Simulation results demonstrate the trade-off between treatment efficacy and
-collateral thermal damage, and validate the adjoint-based gradient against
-finite-difference perturbations.
+(ii)~indirect Pontryagin-based gradient projection (forward-adjoint sweeps), and
+(iii)~direct single-shooting nonlinear programming via \texttt{scipy} SLSQP.
+The framework supports both 2-D slices and full 3-D volumes, three probe
+(SAR) geometries, and Dirichlet, Neumann, and Robin boundary conditions.
+A sweep over solver, dimensionality, and probe geometry demonstrates the
+trade-off between treatment efficacy and collateral thermal damage, and shows
+how cost-weight calibration and solver scalability behave as the problem moves
+from two to three dimensions.
 
 \cleardoublepage
 \phantomsection
@@ -74,9 +74,10 @@ finite-difference perturbations.
 \begin{center}\textbf{Acknowledgements}\end{center}
 
 \noindent
-The author gratefully acknowledges Professor Tsu-Chin Tsao for guidance
-throughout MAE 270C, and the UCLA MACLAB for providing the research context
-on MRI-guided surgical robotics that motivated this project.
+Huge thanks to Professor Shahriar Talebi for his wonderful teaching and mentorship throughout MAE 270C.
+This is one of the best control courses I have ever taken.
+
+Also thanks to AI agent Claude for helping me construct the codes and visualization of simulation results.
 
 \cleardoublepage
 \phantomsection
@@ -85,27 +86,6 @@ on MRI-guided surgical robotics that motivated this project.
 % ----------------------------------
 \renewcommand\contentsname{Table of Contents}
 \tableofcontents
-\cleardoublepage
-\phantomsection
-
-% L I S T   O F   F I G U R E S
-% ------------------------------
-\addcontentsline{toc}{chapter}{List of Figures}
-\listoffigures
-\cleardoublepage
-\phantomsection
-
-% L I S T   O F   T A B L E S
-% ----------------------------
-\addcontentsline{toc}{chapter}{List of Tables}
-\listoftables
-\cleardoublepage
-\phantomsection
-
-% L I S T   O F   A B B R E V I A T I O N S
-% ------------------------------------------
-\renewcommand*{\abbreviationsname}{List of Abbreviations}
-\printglossary[type=abbreviations]
 \cleardoublepage
 \phantomsection
 

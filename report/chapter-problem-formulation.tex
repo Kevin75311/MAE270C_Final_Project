@@ -6,6 +6,13 @@
 %----------------------------------------------------------------------
 \section{Domain and Geometry}
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/ablation.png}
+    \caption{Domain geometry and sub-regions: tumor $\Omega_T$ (red), safety margin $\Omega_M$ (yellow), and healthy tissue $\Omega_H$ (green).}
+    \label{fig:ablation}
+\end{figure}
+
 The tissue domain $\Omega \subset \mathbb{R}^2$ is a square of side
 $L_x \times L_y = \SI{5}{\cm} \times \SI{5}{\cm}$, discretized on a
 uniform $N_x \times N_y$ grid.
@@ -27,7 +34,8 @@ radius, and $\delta_M = \SI{3}{\mm}$ is the margin width.
 
 \subsection{State Equation 1 — Pennes Bioheat PDE}
 
-The temperature field $T(\mathbf{r}, t)$ in \si{\degreeCelsius} satisfies:
+The temperature field $T(\mathbf{r}, t)$ in \si{\degreeCelsius} satisfies
+the Pennes bioheat equation~\cite{pennes1948analysis}:
 \begin{equation}
     \rho(\mathbf{r})\, c(\mathbf{r})\,\frac{\partial T}{\partial t}
     = \nabla \cdot \bigl(k(\mathbf{r})\,\nabla T\bigr)
@@ -65,6 +73,18 @@ where $M = \mathrm{diag}(\rho_i c_i)$, $K_d$ is the sparse FD Laplacian
 weighted by $k$, $W_b = \mathrm{diag}(\omega_b \rho_b c_b)$, and
 $\mathbf{b}_P = \mathrm{SAR}(\mathbf{r})$ vectorized.
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/test_bioheat_2d.png}
+    \caption{Verification of the \texttt{BioHeatSolver} under constant
+             $P = \SI{50}{\watt}$: the temperature field grows around the
+             probe (top), and the tumor-center temperature rises while the
+             healthy-tissue peak stays below $T_{\text{safe}}$ (bottom),
+             confirming the discretized Pennes
+             dynamics~\eqref{eq:bioheat-discrete}.}
+    \label{fig:test-bioheat}
+\end{figure}
+
 \subsection{State Equation 2 — Arrhenius Thermal Damage ODE}
 
 The thermal damage field $\Omega_d(\mathbf{r}, t)$ satisfies a
@@ -80,7 +100,19 @@ $A = 3.1 \times 10^{98}\ \si{\per\second}$ is the frequency factor,
 $E_a = 6.28 \times 10^5\ \si{\joule\per\mol}$ is the activation energy,
 and $R = \SI{8.314}{\joule\per\mol\per\kelvin}$ is the gas constant.
 The damage threshold $\Omega_d = 1$ corresponds to a 63\% probability
-of irreversible cell necrosis (Henriques--Moritz criterion).
+of irreversible cell necrosis (Henriques--Moritz
+criterion~\cite{moritz1947studies}).
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/test_arrhenius_2d.png}
+    \caption{Verification of the \texttt{ArrheniusDamage} integrator at a
+             constant $T = \SI{60}{\degreeCelsius}$. The damage field
+             crosses the necrosis threshold $\Omega_d = 1$ at $t \approx
+             \SI{1.0}{\second}$ (right), matching the analytical crossing
+             time of $\SI{0.9}{\second}$ to within one time step.}
+    \label{fig:test-arrhenius}
+\end{figure}
 
 %----------------------------------------------------------------------
 \section{Boundary Conditions}
@@ -99,17 +131,30 @@ Three boundary condition types are supported on $\partial\Omega$:
         and ambient temperature $T_\infty$.
 \end{description}
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/test_bc_2d.png}
+    \caption{Effect of the three boundary conditions on a uniform
+             $\SI{60}{\degreeCelsius}$ field. Dirichlet pins the boundary
+             ring to $T_{\mathrm{wall}} = \SI{37}{\degreeCelsius}$ (red
+             border); Neumann leaves the interior unchanged (zero flux);
+             Robin cools the boundary toward $T_\infty = \SI{20}{\degreeCelsius}$
+             at rate $h_c$.}
+    \label{fig:test-bc}
+\end{figure}
+
 %----------------------------------------------------------------------
 \section{Cost Functional (Bolza Form)}
 
 The optimal control problem minimizes:
 \begin{equation}
+\begin{aligned}
     J[P(\cdot),\, t_f]
-    = \underbrace{
+    = {}& \underbrace{
         \gamma_1 \int_{\Omega_T}\!\!\max\bigl(0,\,1-\Omega_d(t_f)\bigr)^2\,d\mathbf{r}
         + \gamma_2\,t_f
-      }_{\text{terminal cost } \Phi}
-    + \int_0^{t_f}\!\!
+      }_{\text{terminal cost } \Phi} \\
+    &+ \int_0^{t_f}\!\!
       \underbrace{
         \left[
           \alpha_1\|P\|^2
@@ -117,6 +162,7 @@ The optimal control problem minimizes:
           + \alpha_3
         \right]
       }_{\text{running cost } L}\,dt
+\end{aligned}
     \label{eq:cost}
 \end{equation}
 subject to~\eqref{eq:bioheat-discrete} and~\eqref{eq:arrhenius},
@@ -133,19 +179,27 @@ Table~\ref{tab:cost-weights} lists the default weight values.
 \toprule
 Symbol & Role & Default \\
 \midrule
-$\alpha_1$ & Energy penalty ($\|P\|^2$) & $10^{-4}$ \\
+$\alpha_1$ & Energy penalty ($\|P\|^2$) & $5\times10^{-4}$ \\
 $\alpha_2$ & Healthy-tissue overheating & $1.0$ \\
 $\alpha_3$ & Time-rate cost (encourages speed) & $0.01$ \\
-$\gamma_1$ & Incomplete ablation penalty & $10.0$ \\
+$\gamma_1$ & Incomplete ablation penalty (area-integrated) & $10^{6}$ \\
 $\gamma_2$ & Soft minimum-time penalty & $0.1$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+The ablation penalty is a \emph{spatial integral} scaled by the voxel
+area $dA \approx \SI{e-6}{\square\meter}$, so $\gamma_1$ must be large
+($10^6$) for the ``kill the tumor'' objective to dominate the
+$O(10^1$--$10^2)$ energy and time costs; a smaller $\gamma_1$ makes
+``do nothing'' the global optimum. This is the \emph{non-aggressive}
+weight set used for every run in Chapter~\ref{ch:results}.
+
 %----------------------------------------------------------------------
 \section{Adjoint Equations and Optimal Control Law}
 
-Applying the \gls{pmp} to the discretized system, the costate vector
+Applying the \gls{pmp}~\cite{pontryagin2018mathematical} to the
+discretized system, the costate vector
 $\boldsymbol{\lambda} = [\boldsymbol{\lambda}_T,\, \boldsymbol{\lambda}_\Omega]^\top$
 satisfies backward ODEs integrated from $t_f$ to $0$:
 \begin{align}
